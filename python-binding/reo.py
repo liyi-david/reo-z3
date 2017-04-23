@@ -66,6 +66,7 @@ class Connector:
         # deal with the constraints of abstraction
         solver.add(ForAll(foralls, Not(absGlobalConstr)))
         # TODO: time constraints of the nodes in forall should be put into absGlobalConstr
+        # @liyi test if the todo techniques work
         result = solver.check()
         if str(result) == 'sat':
             return False, solver.model(), solver.to_smt2()
