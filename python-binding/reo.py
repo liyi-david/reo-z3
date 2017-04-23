@@ -37,35 +37,35 @@ class Connector:
             paramnodes = map(lambda name: nodes[name], chan[1])
             solver.add(channelDecl(paramnodes, bound))
 
-
         # step 2. deal with the abstraction
         # create constants if needed
+        foralls = []
+        absGlobalConstr = None
+
         for chan in abstraction.channels:
-            foralls = []
             for nd in chan[1]:
                 if nd not in nodes:
                     nodes[nd] = {
-                        'time': [Const(nd + '_t_' + str(i), Int) for i in range(bound)],
-                        'data': [Const(nd + '_d_' + str(i), Int) for i in range(bound)]
+                        'time': [Const(nd + '_t_' + str(i), RealSort()) for i in range(bound)],
+                        'data': [Const(nd + '_d_' + str(i), IntSort()) for i in range(bound)]
                         }
 
                     foralls += nodes[nd]['time']
                     foralls += nodes[nd]['data']
 
-                    # generate time constraints
-                    # TODO:
-
             # generate constraint for channels
             channelDecl = eval('Channel.' + chan[0])
             paramnodes = map(lambda name: nodes[name], chan[1])
 
-            constr = Not(channelDecl(paramnodes, bound))
-            if len(foralls) > 0:
-                constr = ForAll(foralls, constr)
+            constr = channelDecl(paramnodes, bound)
+            if absGlobalConstr is None:
+                absGlobalConstr = constr
+            else:
+                absGlobalConstr = And(constr, absGlobalConstr)
 
-            solver.add(constr)
-
-
+        # deal with the constraints of abstraction
+        solver.add(ForAll(foralls, Not(absGlobalConstr)))
+        # TODO: time constraints of the nodes in forall should be put into absGlobalConstr
         result = solver.check()
         if str(result) == 'sat':
             return False, solver.model(), solver.to_smt2()
