@@ -31,7 +31,7 @@ class Connector:
                     # generate time constraints
                     solver.add(nodes[nd]['time'][0] >= 0)
                     for i in range(bound - 1):
-                        solver.add(nodes[nd]['time'][i] <= nodes[nd]['time'][i + 1])
+                        solver.add(nodes[nd]['time'][i] < nodes[nd]['time'][i + 1])
 
             # generate constraint for channels
             channelDecl = eval('Channel.' + chan[0])
@@ -55,7 +55,7 @@ class Connector:
                     foralls += nodes[nd]['time']
                     foralls += nodes[nd]['data']
 
-                    currTimeConstr = (nodes[nd]['time'][0] == 0)
+                    currTimeConstr = (nodes[nd]['time'][0] >= 0)
                     for i in range(bound - 1):
                         currTimeConstr = And(currTimeConstr, nodes[nd]['time'][i] < nodes[nd]['time'][i + 1])
 
@@ -75,7 +75,7 @@ class Connector:
                 absGlobalConstr = And(constr, absGlobalConstr)
 
         if absTimeConstr is not None:
-            absGlobalConstr = Implies(absTimeConstr, Not(absGlobalConstr))
+            absGlobalConstr = Or(Not(absTimeConstr), Not(absGlobalConstr))
         else:
             absGlobalConstr = Not(absGlobalConstr)
 
