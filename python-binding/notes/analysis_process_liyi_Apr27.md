@@ -1,3 +1,4 @@
+```
                   / [sync] B
 C1  A - [fifo] - N
                   \ [sync] C
@@ -5,7 +6,7 @@ C1  A - [fifo] - N
                   / [fifo] B
 C2  A - [sync] - M
                   \ [fifo] C
-
+```
 
 C1 refines C2 ?
 C1 => C2?
