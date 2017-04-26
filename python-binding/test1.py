@@ -8,4 +8,4 @@ fifo1.connect('Fifo1', 'A', 'B')
 
 result, counterexample, smt = fifo1.isRefinementOf(sync, 10)
 
-print result
+print(result)

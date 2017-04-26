@@ -2,6 +2,7 @@ from z3 import *
 from channel import *
 from lib import *
 
+import sys
 
 class Connector:
     def __init__(self):
@@ -34,13 +35,14 @@ class Connector:
 
             # generate constraint for channels
             channelDecl = eval('Channel.' + chan[0])
-            paramnodes = map(lambda name: nodes[name], chan[1])
+            paramnodes = list(map(lambda name: nodes[name], chan[1]))
             solver.add(channelDecl(paramnodes, bound))
 
         # step 2. deal with the abstraction
         # create constants if needed
         foralls = []
         absGlobalConstr = None
+        absTimeConstr = None
 
         for chan in abstraction.channels:
             for nd in chan[1]:
@@ -53,9 +55,18 @@ class Connector:
                     foralls += nodes[nd]['time']
                     foralls += nodes[nd]['data']
 
+                    currTimeConstr = (nodes[nd]['time'][0] == 0)
+                    for i in range(bound - 1):
+                        currTimeConstr = And(currTimeConstr, nodes[nd]['time'][i] < nodes[nd]['time'][i + 1])
+
+                    if absTimeConstr is None:
+                        absTimeConstr = currTimeConstr
+                    else:
+                        absTimeConstr = And(absTimeConstr, currTimeConstr)
+
             # generate constraint for channels
             channelDecl = eval('Channel.' + chan[0])
-            paramnodes = map(lambda name: nodes[name], chan[1])
+            paramnodes = list(map(lambda name: nodes[name], chan[1]))
 
             constr = channelDecl(paramnodes, bound)
             if absGlobalConstr is None:
@@ -63,22 +74,29 @@ class Connector:
             else:
                 absGlobalConstr = And(constr, absGlobalConstr)
 
+        if absTimeConstr is not None:
+            absGlobalConstr = Implies(absTimeConstr, Not(absGlobalConstr))
+        else:
+            absGlobalConstr = Not(absGlobalConstr)
+
         # deal with the constraints of abstraction
-        solver.add(ForAll(foralls, Not(absGlobalConstr)))
+        if foralls != []:
+            solver.add(ForAll(foralls, absGlobalConstr))
+        else:
+            solver.add(absGlobalConstr)
         # TODO: time constraints of the nodes in forall should be put into absGlobalConstr
         result = solver.check()
+
+        # DEBUG USE
+        if 'counterexample' in sys.argv:
+            print(solver.model())
+
+        if 'smt2' in sys.argv:
+            print(solver.to_smt2())
+
         if str(result) == 'sat':
             return False, solver.model(), solver.to_smt2()
         else:
             return True, None, solver.to_smt2()
         pass
 
-
-if __name__ == "__main__":
-    sync = Connector()
-    sync.connect('Sync', 'A', 'B')
-
-    fifo1 = Connector()
-    fifo1.connect('Sync', 'A', 'B')
-
-    fifo1.isRefinementOf(sync, 10)

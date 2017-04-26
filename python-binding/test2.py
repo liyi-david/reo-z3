@@ -11,6 +11,6 @@ c2.connect('Fifo1', 'A', 'N')
 c2.connect('Sync', 'N', 'B')
 c2.connect('Sync', 'N', 'C')
 
-result, counterexample, smt = c1.isRefinementOf(c2, 10)
+result, counterexample, smt = c2.isRefinementOf(c1, 10)
 
-print result
+print(result)
