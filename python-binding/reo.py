@@ -85,6 +85,7 @@ class Connector:
         else:
             solver.add(absGlobalConstr)
         # TODO: time constraints of the nodes in forall should be put into absGlobalConstr
+        # @liyi test if the todo techniques work
         result = solver.check()
 
         # DEBUG USE
