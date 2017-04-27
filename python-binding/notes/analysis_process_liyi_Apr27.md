@@ -11,17 +11,17 @@ C2  A - [sync] - M
 C1 refines C2 ?
 C1 => C2?
 
-RAW - forall A,B,C,N (
-  TDS(A) and TDS(B) and TDS(C) and TDS(D) and Fifo(A,N) and Sync(N,B) and Sync(N,C)
-    => exists M, TDS(M) and Sync(A,M) and FIFO(M,B) and FIFO(M,C)
-)
+    RAW - forall A,B,C,N (
+      TDS(A) and TDS(B) and TDS(C) and TDS(D) and Fifo(A,N) and Sync(N,B) and Sync(N,C)
+        => exists M, TDS(M) and Sync(A,M) and FIFO(M,B) and FIFO(M,C)
+    )
 
 !RAW?
 
-exists A,B,C,N (
-  TDS(A) and TDS(B) and TDS(C) and TDS(D) and Fifo(A,N) and Sync(N,B) and Sync(N,C) and
-  forall M, not TDS(M) or not (Sync(A,M) and ... )
-)
+    exists A,B,C,N (
+      TDS(A) and TDS(B) and TDS(C) and TDS(D) and Fifo(A,N) and Sync(N,B) and Sync(N,C) and
+      forall M, not TDS(M) or not (Sync(A,M) and ... )
+    )
 
 counter - example
 
