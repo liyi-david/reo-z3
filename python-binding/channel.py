@@ -68,6 +68,15 @@ class Channel:
         return result
     
     @staticmethod
+    def SyncDrain(nodes, bound):
+        assert len(nodes) == 2
+        constraints = []
+        for i in range(bound):
+            constraints += [nodes[0]['time'][i] == nodes[1]['time'][i]]
+
+        return Merge(constraints)
+    
+    @staticmethod
     def Merge1(nodes, bound):
         assert len(nodes) == 3
         constraints = []
