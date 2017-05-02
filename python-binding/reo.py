@@ -89,7 +89,7 @@ class Connector:
         result = solver.check()
 
         # DEBUG USE
-        if 'counterexample' in sys.argv:
+        if 'counterexample' in sys.argv and str(result) == 'sat':
             print(solver.model())
 
         if 'smt2' in sys.argv:
