@@ -1,6 +1,6 @@
 import sys
 
-#sys.path.append("C://Users//xiyue//Source//Repos//z3//build//python")
+# sys.path.append("C://Users//xiyue//Source//Repos//z3//build//python")
 from z3 import *
 
 def Merge(constraints):
@@ -82,7 +82,16 @@ class Channel:
                   And(Merge(constraints_1), Lossy1(nodes, idx + 1, num + 1, bound)))
 
     @staticmethod
-    def Merge1(nodes, idx_1, idx_2, bound):
+    def SyncDrain(nodes, bound):
+        assert len(nodes) == 2
+        constraints = []
+        for i in range(bound):
+            constraints += [nodes[0]['time'][i] == nodes[1]['time'][i]]
+
+        return Merge(constraints)
+    
+    @staticmethod
+    def Merge1(nodes, bound):
         assert len(nodes) == 3
         if bound == idx_1 + idx_2:
             return True
@@ -96,15 +105,4 @@ class Channel:
         constraints_2 += [ nodes[1]['time'][idx_2] <  nodes[0]['time'][idx_1]]
         return Or(And(Merge(constraints_1), Merge1(nodes, idx_1 + 1, idx_2, bound)),
                   And(Merge(constraints_2), Merge1(nodes, idx_1, idx_2 + 1, bound)))
-
-    
-    @staticmethod
-    def SyncDrain(nodes, bound):
-        assert len(nodes) == 2
-        constraints = []
-        for i in range(bound):
-            constraints += [nodes[0]['time'][i] == nodes[1]['time'][i]]
-
-        return Merge(constraints)
-    
     
