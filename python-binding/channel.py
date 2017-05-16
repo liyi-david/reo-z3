@@ -15,15 +15,6 @@ def Merge(constraints):
 
     return result
 
-def Lossy_seq(index, bound):
-    seq = []
-    temp = index
-    for i in range(bound):
-        seq.append(temp % 2)
-        temp = (temp - (temp % 2)) / 2
-        
-    return seq
-
 class Channel:
     @staticmethod
     def Sync(nodes, bound):
@@ -48,40 +39,6 @@ class Channel:
         return Merge(constraints)
     
     @staticmethod
-    def Lossy(nodes, bound):
-        assert len(nodes) == 2
-        result = None
-        for i in range(2**bound):
-            constraints = []
-            seq_lossy   = Lossy_seq(i, bound)
-            num_index   = 0
-            for j in range(bound):
-                if seq_lossy[j]:
-                    constraints += [ nodes[0]['data'][j] == nodes[1]['data'][num_index] ]
-                    constraints += [ nodes[0]['time'][j] == nodes[1]['time'][num_index] ]
-                    num_index   += 1
-            if result is None:
-                result = Merge(constraints)
-            else:
-                result = Or(result, Merge(constraints))
-        
-        return result
-    
-    @staticmethod
-    def Lossy1(nodes, idx, num, bound):
-        assert len(nodes) == 2
-        if bound == num:
-            return True
-        constraints_0 = []
-        constraints_1 = []
-        constraints_0 += [ nodes[0]['data'][idx] != nodes[1]['data'][num]]
-        constraints_0 += [ nodes[0]['time'][idx] != nodes[1]['time'][num]]
-        constraints_1 += [ nodes[0]['data'][idx] == nodes[1]['data'][num]]
-        constraints_1 += [ nodes[0]['time'][idx] == nodes[1]['time'][num]]
-        return Or(And(Merge(constraints_0), Lossy1(nodes, idx + 1, num, bound)),
-                  And(Merge(constraints_1), Lossy1(nodes, idx + 1, num + 1, bound)))
-
-    @staticmethod
     def SyncDrain(nodes, bound):
         assert len(nodes) == 2
         constraints = []
@@ -91,7 +48,23 @@ class Channel:
         return Merge(constraints)
     
     @staticmethod
-    def Merge1(nodes, bound):
+    def Lossy(nodes, bound, idx = 0, num = 0):
+        assert len(nodes) == 2
+        if bound == num:
+            return True
+        if bound == idx:
+            return True
+        constraints_0 = []
+        constraints_1 = []
+        constraints_0 += [ nodes[0]['data'][idx] != nodes[1]['data'][num]]
+        constraints_0 += [ nodes[0]['time'][idx] != nodes[1]['time'][num]]
+        constraints_1 += [ nodes[0]['data'][idx] == nodes[1]['data'][num]]
+        constraints_1 += [ nodes[0]['time'][idx] == nodes[1]['time'][num]]
+        return Or(And(Merge(constraints_0), Channel.Lossy(nodes, bound, idx + 1, num)),
+                  And(Merge(constraints_1), Channel.Lossy(nodes, bound, idx + 1, num + 1)))
+
+    @staticmethod
+    def Merger(nodes, bound, idx_1 = 0, idx_2 = 0):
         assert len(nodes) == 3
         if bound == idx_1 + idx_2:
             return True
@@ -103,6 +76,5 @@ class Channel:
         constraints_2 += [ nodes[1]['data'][idx_2] == nodes[2]['data'][idx_1 + idx_2]]
         constraints_2 += [ nodes[1]['time'][idx_2] == nodes[2]['time'][idx_1 + idx_2]]
         constraints_2 += [ nodes[1]['time'][idx_2] <  nodes[0]['time'][idx_1]]
-        return Or(And(Merge(constraints_1), Merge1(nodes, idx_1 + 1, idx_2, bound)),
-                  And(Merge(constraints_2), Merge1(nodes, idx_1, idx_2 + 1, bound)))
-    
+        return Or(And(Merge(constraints_1), Channel.Merger(nodes, bound, idx_1 + 1, idx_2)),
+                  And(Merge(constraints_2), Channel.Merger(nodes, bound, idx_1, idx_2 + 1)))
