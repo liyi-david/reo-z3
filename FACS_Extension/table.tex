@@ -1,0 +1,88 @@
+\documentclass[a4paper,12pt]{article}
+\begin{document}
+\begin{table}
+\newcommand{\tabincell}[2]{\begin{tabular}{@{}#1@{}}#2\end{tabular}}
+  \centering
+  \begin{tabular}{|c|c|c|}\hline
+\tabincell{c}{Step} & \tabincell{c}{Feedback}\\\hline
+\tabincell{c}{Theorem subtest3:\\((Tle C2) C1)
+   $\bigwedge$
+   ((Tle C1) (tl C2))} & \tabincell{c}{ 1 subgoals \\Tle C2 C1 $\bigwedge$ Tle C1 (tl C2)} \\\hline
+\tabincell{c}{destruct D2 } & \tabincell{c}{ 1 subgoals \\ Tle C2 C1$\bigwedge$ Tle C1 (tl C2)
+ \\ H : Tle A C1\\
+H0 : Tle C1 (tl A) $\bigwedge$ Deq A C1} \\\hline
+\tabincell{c}{destruct D3 } & \tabincell{c}{ 1 subgoals \\ Tle C2 C1 $\bigwedge$ Tle C1 (tl C2)
+ \\H : Tle A C1\\
+H0 : Tle C1 (tl A) $\bigwedge$ Deq A C1\\
+H1 : Teq B C2
+H2 : Deq B C2} \\\hline
+\tabincell{c}{
+destruct H0} & \tabincell{c}{ 1 subgoals \\Tle C2 C1 $\bigwedge$ Tle C1 (tl C2)
+\\H : Tle A C1
+H0 : Tle C1 (tl A)\\
+H3 : Deq A C1
+H1 : Teq B C2
+H2 : Deq B C2} \\\hline
+\tabincell{c}{split } & \tabincell{c}{2 subgoal Tle C2 C1 Tle C1 (tl C2)\\ H : Tle A C1
+H0 : Tle C1 (tl A)\\
+H3 : Deq A C1
+H1 : Teq B C2
+H2 : Deq B C2} \\\hline
+\tabincell{c}{intros n } & \tabincell{c}{ 2 subgoal \\$PrL (Str_nth n C2) < PrL (Str_nth n C1)$ \\ Tle C1 (tl C2) \\H : Tle A C1
+H0 : Tle C1 (tl A)\\
+H3 : Deq A C1
+H1 : Teq B C2\\
+H2 : Deq B C2
+n : nat
+} \\\hline
+\tabincell{c}{rewrite  $\leftarrow$ H1 } & \tabincell{c}{ 2 subgoal \\ $PrL (Str_nth n B) < PrL (Str_nth n C1)$ \\ Tle C1 (tl C2)\\ H : Tle A C1
+H0 : Tle C1 (tl A)\\
+H3 : Deq A C1
+H1 : Teq B C2\\
+H2 : Deq B C2
+n : nat} \\\hline
+\tabincell{c}{rewrite  $\leftarrow$ D1 } & \tabincell{c}{ 2 subgoal \\ $PrL (Str_nth n A) < PrL (Str_nth n C1)$ \\ Tle C1 (tl C2)\\ H : Tle A C1
+H0 : Tle C1 (tl A)\\
+H3 : Deq A C1
+H1 : Teq B C2\\
+H2 : Deq B C2
+n : nat} \\\hline
+\tabincell{c}{apply H } & \tabincell{c}{ 1 subgoals Tle C1 (tl C2) \\ H : Tle A C1
+H0 : Tle C1 (tl A)\\
+H3 : Deq A C1
+H1 : Teq B C2\\
+H2 : Deq B C2} \\\hline
+\tabincell{c}{intros n } & \tabincell{c}{ 1 subgoals Tle C1 (tl C2) \\ H : Tle A C1
+H0 : Tle C1 (tl A)\\
+H3 : Deq A C1
+H1 : Teq B C2\\
+H2 : Deq B C2} \\\hline
+\tabincell{c}{rewrite  $\leftarrow$ D4 } & \tabincell{c}{ 2 subgoal \\ $PrL (Str_nth n C1) < PrL (Str_nth n (tl B))$ \\ Teq B C2\\ H : Tle A C1
+H0 : Tle C1 (tl A)\\
+H3 : Deq A C1
+H1 : Teq B C2\\
+H2 : Deq B C2
+n : nat} \\\hline
+\tabincell{c}{rewrite  $\leftarrow$ D5 } & \tabincell{c}{ 3 subgoal \\ $PrL (Str_nth n C1) < PrL (Str_nth n (tl A))$ \\ Teq A B Teq B C2\\ H : Tle A C1
+H0 : Tle C1 (tl A)\\
+H3 : Deq A C1
+H1 : Teq B C2\\
+H2 : Deq B C2
+n : nat} \\\hline
+\tabincell{c}{apply H0 } & \tabincell{c}{ 2 subgoal Teq A B Teq B C2 \\ H : Tle A C1
+H0 : Tle C1 (tl A)\\
+H3 : Deq A C1
+H1 : Teq B C2\\
+H2 : Deq B C2
+n : nat} \\\hline
+\tabincell{c}{apply D1 } & \tabincell{c}{ 1 subgoals Teq B C2 \\ H : Tle A C1
+H0 : Tle C1 (tl A)\\
+H3 : Deq A C1
+H1 : Teq B C2\\
+H2 : Deq B C2
+n : nat} \\\hline
+\tabincell{c}{apply D3 } & \tabincell{c}{ No more subgoals.} \\\hline
+\end{tabular}
+  \caption{Steps and feedback}
+\end{table}
+\end{document}
