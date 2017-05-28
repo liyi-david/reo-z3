@@ -16,6 +16,8 @@
 \usepackage{todonotes}
 \usepackage{color}
 \usepackage{verbatim}
+\usepackage{listings}
+
 \newcommand{\redt}[1]{\textcolor{red}{#1}}
 \newcommand{\liyi}[1]{\textcolor{blue}{#1}}
 %\newcommand{\xyz}[1]{\textcolor{blue}{#1}}
@@ -23,6 +25,38 @@
 \newtheorem{example}{Example}[section]
 \newtheorem{theorem}{Theorem}[section]
 \newtheorem{lemma}{Lemma}[section]
+
+\lstset{
+    basicstyle=\ttfamily, 
+    numbers=left,
+    numberstyle=\small,
+    columns=flexible,
+    numbersep=10pt,
+    tabsize=2,
+    extendedchars=true,         %
+    breaklines=true,
+    keywordstyle=\bfseries,
+    stringstyle=\color{white}\ttfamily, % Farbe der String
+    xleftmargin=20pt,
+    framexleftmargin=17pt,
+    framexrightmargin=5pt,
+    framexbottommargin=4pt,
+    showstringspaces=false,
+    frame=single
+}
+
+\lstdefinelanguage{coq}{
+    keywords = {
+        Parameter, Parameters, Variable, Variables,
+        Fixpoint,
+        Stream, Prop,
+        forall, exists,
+        Axiom, Lemma, Goal, Theorem,
+        Proof, Qed
+    }
+}
+
+\renewcommand{\ttdefault}{pxtt}
 
 \usepackage{url}
 %\pagestyle{plain}
@@ -203,7 +237,7 @@ theorem and hypothesis) and operational formalizations (e.g. functions and algor
 integrated. Moreover, it allows the interactive construction of formal proofs.
 The formal language used in Coq is called \emph{Gallina}, which provides a convenient way to define
 both programming statements and mathematical propositions, for example:
-\begin{verbatim}
+\begin{lstlisting}[language=coq]
   (* a variable definition *)
   Variables a b: nat.
   (* a simple non-recursive function *)
@@ -216,7 +250,7 @@ both programming statements and mathematical propositions, for example:
     (* interactive proving based on tactics *)
     auto.
   Qed.
-\end{verbatim}
+\end{lstlisting}
 
 As shown in this example, there are two rather different mode in Coq's interactive shell. When
 we start Coq, we can write declarations and definitions in a functional-programming mode. Then, when
@@ -421,7 +455,7 @@ node that delivers a data item out of \emph{AB} or \emph{CD}.
 %the definition here remains deterministic.}.
 Similar to the definition of basic channels, we define merge as the intersection of two predicates and use recursive definition here:
 %    Definition xor(a b: Prop) :=  (a \/ b) /\ ~(a /\ b).
-\begin{verbatim}
+\begin{lstlisting}
     Parameter merge:
     Stream TD -> Stream TD ->Stream TD -> Prop.
     Axiom merge_coind:
@@ -436,7 +470,7 @@ Similar to the definition of basic channels, we define merge as the intersection
           ((hd s3 = hd s2)  /\ merge s1 (tl s2) (tl s3))
         )
       ).
-\end{verbatim}
+\end{lstlisting}
 
 \begin{figure}
 \vspace{0cm}
