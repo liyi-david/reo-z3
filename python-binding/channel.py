@@ -1,6 +1,3 @@
-import sys
-
-# sys.path.append("C://Users//xiyue//Source//Repos//z3//build//python")
 from z3 import *
 
 def Merge(constraints):
@@ -37,7 +34,19 @@ class Channel:
                 constraints += [ nodes[0]['time'][i] > nodes[1]['time'][i-1] ]
 
         return Merge(constraints)
-    
+    @staticmethod
+    def Fifo1e(nodes, bound):
+        assert len(nodes) == 2
+        constraints = []
+        constraints += [nodes[1]['data'][0] == 1]
+        for i in range(bound-1):
+            constraints += [nodes[0]['data'][i] == nodes[1]['data'][i + 1]]
+            constraints += [nodes[0]['time'][i] < nodes[1]['time'][i + 1]]
+        for i in range(bound):
+            constraints += [nodes[0]['time'][i] > nodes[1]['time'][i]]
+
+        return Merge(constraints)
+        
     @staticmethod
     def SyncDrain(nodes, bound):
         assert len(nodes) == 2

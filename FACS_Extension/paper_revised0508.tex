@@ -178,12 +178,10 @@ data into the channel. A sink channel end dispenses data out of the channel.
   \syncdrain{(2,1)}{(3.5,1)}{node[below]{}}
   \draw (4.7, 0.6) node[draw=none] {FIFO1};
   \fifoe{(4,1)}{(5.5,1)}{node[below]{}}
-  \draw (6.7, 0.6) node[draw=none] {Asyncdrain};
-  \asyncdrain{(6,1)}{(7.5,1)}{node[below left]{}}
   \draw (8.7, 0.6) node[draw=none] {LossySync};
   \lossysync{(8,1)}{(9.5,1)}{node[below left]{}}
   \end{tikzpicture}\vspace{-6mm}
-  \caption{Five types of basic channels.}\label{fig:basicchannel}
+  \caption{Four types of basic channels.}\label{fig:basicchannel}
 \end{figure}
 
 
@@ -972,18 +970,20 @@ Before using Z3 to fulfil the proof of refinement relation, we need to implement
 Coinciding with the definition of channels in Coq, we dealt with both time and data relation constraints in the basic definition. An auxiliary function \emph{Conjunction} is used to take the conjunction of every constraint in the constraint lists parameterized by \emph{constraints}.
 
 By means of function \emph{Conjunction}, basic channels are defined concisely and neatly. For example, the specific behavior constraints for \emph{Sync} channel are classified into two types: data constraints and time constraints. The description and the definition of \emph{Sync} in Coq have already clearly expressed the behavior pattern it needs to follow: each item in data and time streams of output specified as ``node[1]'' is equivalent to the timed data items of input specified as ``node[0]'', which are exactly data and time constraints. As they are both requirements that we need to satisfy no matter data or time is related, each constraint in the list will all be merged finally.
-\lstset{language=Python}
+%\lstset{language=Python}
 \begin{lstlisting}[frame=single]
 def Sync(nodes, bound):
    assert len(nodes) == 2
    constraints = []
    for i in range(bound):
-     constraints += [ nodes[0]['data'][i] == nodes[1]['data'][i] ]
-     constraints += [ nodes[0]['time'][i] == nodes[1]['time'][i] ]
-   return Merge(constraints)
+     constraints +=
+        [ nodes[0]['data'][i] == nodes[1]['data'][i] ]
+     constraints +=
+        [ nodes[0]['time'][i] == nodes[1]['time'][i] ]
+   return Conjunction(constraints)
 \end{lstlisting}
 
-\emph{Syncdrain} and \emph{FIFO1} channel are defined in a similar way. On the basis of the behavior of \emph{Syncdrain} channel, there are only time related constraints to be needed, i.e., equivalence of each item in two time streams of the two inputs. Regarding \emph{FIFO1} channels, constraints related data is the same as \emph{Sync} channels. But there are more time related constraints. As the buffer capacity is one, the relation of each item in the input time stream and output time stream need to be carefully dealt with, especially that the next input should be later than the output at present. At last, their corresponding constraint lists consist of constraint statements similar to the statements above.
+\emph{Syncdrain} channel are defined in a similar way. On the basis of the behavior of \emph{Syncdrain} channel, there are only time related constraints to be needed, i.e., equivalence of each item in two time streams of the two inputs.
 \begin{lstlisting}[frame=single]
 def SyncDrain(nodes, bound):
    assert len(nodes) == 2
@@ -991,8 +991,9 @@ def SyncDrain(nodes, bound):
    for i in range(bound):
        constraints +=
             [nodes[0]['time'][i] == nodes[1]['time'][i]]
-   return Merge(constraints)
+   return Conjunction(constraints)
 \end{lstlisting}
+Regarding \emph{FIFO1} channels, constraints related data is the same as \emph{Sync} channels. But there are more time related constraints. As the buffer capacity is one, the relation of each item in the input time stream and output time stream need to be carefully dealt with, especially that the next input should be later than the output at present. If the buffer contains a data item at first, i.e. the variant version \emph{FIFO1e} channel, then the constraints related to data and time are just a little different. Note that the data item ``\emph{e}'' in the buffer should be the first for transit and all the differences made to the constraints result from it. At last, their corresponding constraint lists consist of constraint statements similar to the statements above.
 \begin{lstlisting}[frame=single]
 def Fifo1(nodes, bound):
    assert len(nodes) == 2
@@ -1005,7 +1006,21 @@ def Fifo1(nodes, bound):
       if i:
           constraints +=
                   [ nodes[0]['time'][i] > nodes[1]['time'][i-1] ]
-
+   return Conjunction(constraints)
+\end{lstlisting}
+\begin{lstlisting}[frame=single]
+def Fifo1e(nodes, bound):
+   assert len(nodes) == 2
+   constraints = []
+   constraints += [nodes[1]['data'][0] == 1]
+   for i in range(bound-1):
+      constraints +=
+                  [nodes[0]['data'][i] == nodes[1]['data'][i + 1]]
+      constraints +=
+                  [nodes[0]['time'][i] < nodes[1]['time'][i + 1]]
+   for i in range(bound):
+      constraints +=
+                  [nodes[0]['time'][i] > nodes[1]['time'][i]]
    return Merge(constraints)
 \end{lstlisting}
 
@@ -1027,16 +1042,16 @@ def Lossy(nodes, bound, idx = 0, num = 0):
            [ nodes[0]['data'][idx] == nodes[1]['data'][num]]
    constraints_1 +=
            [ nodes[0]['time'][idx] == nodes[1]['time'][num]]
-   return Or(And(Merge(constraints_0),
+   return Or(And(Conjuction(constraints_0),
              Channel.Lossy(nodes, bound, idx + 1, num)),
-             And(Merge(constraints_1),
+             And(Conjunction(constraints_1),
              Channel.Lossy(nodes, bound, idx + 1, num + 1))
              )
 \end{lstlisting}
 \subsection{Composition Operators}
 While the basic channels are already well defined as the basis of the whole construction framework, the composition operators also need to be specified for the large-scale connector construction just like cement for bricks.
 
-Among the three types of composition operators, the most important and difficult one is \emph{Merge}, which is specially dealt with as a channel \emph{Merger} in our model. Although the composition operator \emph{Merge} is treated as a channel \emph{Merger}, it also play the same part in the construction of a connector.  Plus the rest of composition operators: \emph{replicate} and \emph{flow-through}, they are enough for the whole construction for any connector, which can serve as same as the original composition operations. For each item of output stream, there is a nondeterministic choice between the two input nodes. Hence, the \emph{Merger} channel also need to be defined in a recursive way like \emph{Lossy} channel. Note that the constraints also conform well to the original definition of \emph{Merge}. Concluded from the two recursive definitions, an additional advantage of defining \emph{Lossy} and \emph{Merger} channel in this way is that it can preserve the behavioral pattern to a great extent without many assumptions such as priorities of reading or taking data.
+Among the three types of composition operators, the most important and difficult one is \emph{Merge}, which is specially dealt with as a channel \emph{Merger} in our model. Although the composition operator \emph{Merge} is treated as a channel \emph{Merger}, it also plays the same part in the construction of a connector.  Plus the rest of composition operators: \emph{replicate} and \emph{flow-through}, they are enough for the whole construction for any connector, which can serve as same as the original composition operations. For each item of output stream, there is a nondeterministic choice between the two input nodes. Hence, the \emph{Merger} channel also need to be defined in a recursive way like \emph{Lossy} channel. Note that the constraints also conform well to the original definition of \emph{Merge}. Concluded from the two recursive definitions, an additional advantage of defining \emph{Lossy} and \emph{Merger} channel in this way is that it can preserve the behavioral pattern to a great extent without many assumptions such as priorities of reading or taking data.
 \begin{lstlisting}[frame=single]
 def Merger(nodes, bound, idx_1 = 0, idx_2 = 0):
    assert len(nodes) == 3
@@ -1075,10 +1090,18 @@ class Connector:
         self.channels += [(channel, nodes)]
         return self
 \end{lstlisting}
-Another function \textbf{\emph{isRefinementOf}} is the most crucial one in refinement checking. The result of the function \textbf{\emph{isRefinementOf}} is Boolean, i.e., a connector either is or not a refinement of another connector. According to the definition of refinement relation in section \ref{sec:verification}, we have a formula to represent it properly: $Q \rightarrow P$ if and only if the behavior property of \emph{P} can be derived from the property of connector \emph{Q}, i.e., $\emph{P} \sqsubseteq \emph{Q}$. The background theory of the definition of function  \textbf{\emph{isRefinementOf}} is based on first order logic. Initially, if \emph{Q} is indeed a refinement of \emph{P}, i.e., $Q \rightarrow P$, it can be rephrased as $\neg Q \vee P$. If Z3 solver presents a model satisfying the negation of this formula, then the refinement relation is falsified by a counterexample. On the contrary, if there didn't exist a counter example, we say that the refinement relation, $P\subseteq Q$, holds within the given bound. 
+Another function \textbf{\emph{isRefinementOf}} is the most crucial one in refinement checking. The result of the function \textbf{\emph{isRefinementOf}} is Boolean, i.e., a connector either is or not a refinement of another connector. According to the definition of refinement relation in section \ref{sec:verification}, we have a formula to represent it properly: $Q \rightarrow P$ if and only if the behavior property of \emph{P} can be derived from the property of connector \emph{Q}, i.e., $\emph{P} \sqsubseteq \emph{Q}$. The background theory of the definition of function  \textbf{\emph{isRefinementOf}} is based on first order logic. Initially, if \emph{Q} is indeed a refinement of \emph{P}, i.e., $Q \rightarrow P$, it can be rephrased as $\neg Q \vee P$. If Z3 solver presents a model satisfying the negation of this formula, then the refinement relation is falsified by a counterexample. On the contrary, if there didn't exist a counter example, we say that the refinement relation, $P\subseteq Q$, holds within the given bound.
 
-The soundness of the function \textbf{\emph{isRefinementOf}} is presented as a theorem as follows. 
+The soundness of the function \textbf{\emph{isRefinementOf}} is presented as a theorem as follows.
+\begin{theorem}[Soundness Theorem]
+The algorithm won't produce fake counter-examples.
+\end{theorem}
 
+\begin{proof}
+Assume the bound we set is \emph{b}. For any channel, the constraints used in Z3 is bounded, i.e., only part of the constraints of timed data stream are fed to Z3. Let the set of all constraints of connectors considered be $\Sigma$ and the constraints of bounded ones be $\sigma$. We have $\sigma \sqsubset \Sigma$. If there exists a counterexample $\pi$ and the weaker constraints can't be satisfied: $\pi \nvDash \sigma$, then we can deduce that $\pi \nvDash \Sigma$. Let $\Pi$ be the full timed data stream where $\pi$ is the prefix of it and $\Pi \setminus \pi$ satisfies all the left constraints $\Sigma \setminus \sigma$.
+A valid prefix leads to a valid timed data stream, hence we have $\Pi \nvDash \sigma$.
+The counterexamples are always true.
+\end{proof}
 The formal definition of \textbf{\emph{isRefinementOf}} is given as an algorithm here, with the details left out.
 \begin{algorithm}[t]
     \caption{\ \ Q.isRefinementOf (P, bound)}
@@ -1175,7 +1198,7 @@ c2.connect('Sync', 'N', 'C')
 Notice that the \emph{replicate} operator is applied twice in the construction process. Assume the bound is ten and then carry out the function \emph{c2.isRefinementOf(c1, 10)}. Finally, we can get the result \emph{True} which means that \emph{Connector Q} in Fig.\ref{refine} is indeed a refinement of \emph{Connector P}. We can further extend the bound and the time complexity increases linearly as no recursively defined channels are involved.
 \end{example}
 \begin{example}
-This example checks the equivalence relation between connectors in Fig.\ref{refine1}. Construct the two connectors first similar to the example \ref{ex:equivalence1} and invoke the function \emph{isRefinementOf} in two directions. 
+This example checks the equivalence relation between connectors in Fig.\ref{refine1}. Construct the two connectors first similar to the example \ref{ex:equivalence1} and invoke the function \emph{isRefinementOf} in two directions.
 When giving the bound ten, the results of two directions that we get are both \emph{True}. With the yielded result and the soundness theorem, we can conclude that the two connectors are in equivalence relation within the bound ten.
 \end{example}
 
@@ -1215,13 +1238,72 @@ In this example, we will take the well-known Reo connector \emph{Exclusive Route
     \sync{(pwaydown)}{(pmid)}{}
     \sync{(pwayup)}{(poutup)}{}
     \sync{(pwaydown)}{(poutdown)}{}
-\end{tikzpicture}
+  \end{tikzpicture}
 \caption{Example of connector complementary refinement }
 \end{figure}
 
 
 \end{example}
-The following large-scale example is aimed at complementary refinement checking.
+
+\begin{example}
+Fig.\ref{fig:large} shows an example of the application of a two-node sequencer, with the addition of a pair of \emph{Sync} channels and a \emph{SyncDrain} channel connecting each of the nodes of the sequencer to the nodes
+\emph{A} and \emph{C}, and \emph{B} and \emph{C}, respectively. The leftmost channel is initialized to have a data item in its buffer, as indicated
+by the presence of the symbol \emph{e} in the box, which is actually a \emph{FIFO1e} channel. As the sequencer ensures that the take operation on nodes \emph{G} and \emph{H} can succeed only in the strict left-to-right order, the behavior of the connector can be seen as imposing an order on the flow of the data items written to \emph{A} and \emph{B}. The timed data stream obtained by successive take operations on \emph{C} consists of the first data item written to \emph{B}, followed by the first data item written to \emph{A}, followed by the second data item written to \emph{B}, and so on. The variant connector is obtained by replacing the pair of \emph{Sync} channels with a pair of \emph{Sync} channel and \emph{Lossy} channel. On account of the behavior of \emph{Lossy} channel, the first data item written to \emph{B} can be lost, which leads to the failure of the sequence order. Thus, the variant connector is not a refinement of the original connector, but the original connector is indeed a refinement of the variant connector. The details of the concrete construction and counterexample are left out. The results Z3 solver presented are \emph{False} for \emph{c2.isRefinementOf(c1)} and \emph{True} for \emph{c1.isRefinementOf(c2)}, which are consistent with the theoretical deduction.
+\begin{figure}
+\centering
+\begin{tikzpicture}
+	\node (note1) at (5.1, -2.6) {\small (a) Sequencer};
+    \node (note2) at (11.5, -2.6) {\small (b) Variant Sequencer};
+    \node (note3) at (4.25,-1.1) {e};
+    \node (note3) at (10.75,-1.1) {e};
+
+    \ionode{(inup)}{(3.5, 0.8)}{node[left] {A}}
+    \ionode{(indown)}{(3.5, 0)}{node[left] {B}}
+    \ionode{(out)}{(7.7,0.8)}{node[right] {C}}
+    \mixednode{(mid1up)}{(6.5, 0.8)}{node[above] {D}}
+    \mixednode{(mid1down)}{(5, 0)}{node[above] {E}}
+    \mixednode{(mid2left)}{(3.5, -1.1)}{node[left] {F}}
+    \mixednode{(mid2mid)}{(5, -1.1)}{node[below] {G}}
+    \mixednode{(mid2right)}{(6.5, -1.1)}{node[right] {H}}
+    \sync{(inup)}{(mid1up)}{}
+    \sync{(mid1up)}{(out)}{}
+    \sync{(indown)}{(mid1down)}{}
+    \draw [-](5,0) -- (6.8,0)node[below]{};
+    \draw [->](6.8,0) -- (7.6,0.7)node[below]{};
+    \syncdrain{(mid1down)}{(mid2mid)}{}
+    \syncdrain{(mid1up)}{(mid2right)}{}
+    \fifoe{(mid2left)}{(mid2mid)}{}
+    \fifoe{(mid2mid)}{(mid2right)}{}
+    \draw [-](6.5,-1.1) -- (6.5,-1.8)node[below]{};
+    \draw [-](6.5,-1.8) -- (3.5,-1.8)node[below]{};
+    \draw [->](3.5,-1.8) -- (3.5,-1.2)node[below]{};
+
+    \ionode{(pinup)}{(10, 0.8)}{node[left] {A}}
+    \ionode{(pindown)}{(10, 0)}{node[left] {B}}
+    \ionode{(pout)}{(14.2,0.8)}{node[right] {C}}
+    \mixednode{(pmid1up)}{(13, 0.8)}{node[above] {D}}
+    \mixednode{(pmid1down)}{(11.5, 0)}{node[above] {E}}
+    \mixednode{(pmid2left)}{(10, -1.1)}{node[left] {F}}
+    \mixednode{(pmid2mid)}{(11.5, -1.1)}{node[below] {G}}
+    \mixednode{(pmid2right)}{(13, -1.1)}{node[right] {H}}
+    \sync{(pinup)}{(pmid1up)}{}
+    \lossysync{(pmid1up)}{(pout)}{}
+    \sync{(pindown)}{(pmid1down)}{}
+    \draw [dashed](11.5,0) -- (13.3,0)node[below]{};
+    \draw [dashed](13.3,0) -- (14,0.7)node[below]{};
+    \draw [->](13.9,0.6) -- (14,0.7)node[below]{};
+    \syncdrain{(pmid1down)}{(pmid2mid)}{}
+    \syncdrain{(pmid1up)}{(pmid2right)}{}
+    \fifoe{(pmid2left)}{(pmid2mid)}{}
+    \fifoe{(pmid2mid)}{(pmid2right)}{}
+    \draw [-](13,-1.1) -- (13,-1.8)node[below]{};
+    \draw [-](13,-1.8) -- (10,-1.8)node[below]{};
+    \draw [->](10,-1.8) -- (10,-1.2)node[below]{};
+    \end{tikzpicture}
+\caption{Example of connector complementary refinement }
+\label{fig:large}
+\end{figure}
+\end{example}
 \subsection{Z3 vs Coq}
 Having seen the examples proved by Coq or Z3 solver, we can summarize their features and make a comparison between them.
 In the preceding proof about refinement relation or other properties in Coq, the main feature is that users need to master the tactics and strategies well to give a proof of the properties. But there is no need to worry the time consumed in the proof. It will be efficient no matter how large the connectors are as long as users have choose proper tactics. Besides, the connectors whose properties have been proved can be regarded as a theorem when proving properties of much larger ones. Recall that the reason of introducing Z3 solver is that complementary refinement checking, i.e., one connector is not  a refinement of the other one, can't be provided by Coq, let alone provide counterexamples or witnesses.
