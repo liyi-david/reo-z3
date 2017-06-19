@@ -1,6 +1,6 @@
 from z3 import *
 
-def Merge(constraints):
+def Conjunction(constraints):
     assert len(constraints) > 0
 
     result = None
@@ -21,7 +21,7 @@ class Channel:
             constraints += [ nodes[0]['data'][i] == nodes[1]['data'][i] ]
             constraints += [ nodes[0]['time'][i] == nodes[1]['time'][i] ]
 
-        return Merge(constraints)
+        return Conjunction(constraints)
 
     @staticmethod
     def Fifo1(nodes, bound):
@@ -33,7 +33,8 @@ class Channel:
             if i:
                 constraints += [ nodes[0]['time'][i] > nodes[1]['time'][i-1] ]
 
-        return Merge(constraints)
+        return Conjunction(constraints)
+
     @staticmethod
     def Fifo1e(nodes, bound):
         assert len(nodes) == 2
@@ -45,7 +46,7 @@ class Channel:
         for i in range(bound):
             constraints += [nodes[0]['time'][i] > nodes[1]['time'][i]]
 
-        return Merge(constraints)
+        return Conjunction(constraints)
         
     @staticmethod
     def SyncDrain(nodes, bound):
@@ -54,7 +55,7 @@ class Channel:
         for i in range(bound):
             constraints += [nodes[0]['time'][i] == nodes[1]['time'][i]]
 
-        return Merge(constraints)
+        return Conjunction(constraints)
     
     @staticmethod
     def Lossy(nodes, bound, idx = 0, num = 0):
@@ -69,8 +70,8 @@ class Channel:
         constraints_0 += [ nodes[0]['time'][idx] != nodes[1]['time'][num]]
         constraints_1 += [ nodes[0]['data'][idx] == nodes[1]['data'][num]]
         constraints_1 += [ nodes[0]['time'][idx] == nodes[1]['time'][num]]
-        return Or(And(Merge(constraints_0), Channel.Lossy(nodes, bound, idx + 1, num)),
-                  And(Merge(constraints_1), Channel.Lossy(nodes, bound, idx + 1, num + 1)))
+        return Or(And(Conjunction(constraints_0), Channel.Lossy(nodes, bound, idx + 1, num)),
+                  And(Conjunction(constraints_1), Channel.Lossy(nodes, bound, idx + 1, num + 1)))
 
     @staticmethod
     def Merger(nodes, bound, idx_1 = 0, idx_2 = 0):
@@ -85,5 +86,5 @@ class Channel:
         constraints_2 += [ nodes[1]['data'][idx_2] == nodes[2]['data'][idx_1 + idx_2]]
         constraints_2 += [ nodes[1]['time'][idx_2] == nodes[2]['time'][idx_1 + idx_2]]
         constraints_2 += [ nodes[1]['time'][idx_2] <  nodes[0]['time'][idx_1]]
-        return Or(And(Merge(constraints_1), Channel.Merger(nodes, bound, idx_1 + 1, idx_2)),
-                  And(Merge(constraints_2), Channel.Merger(nodes, bound, idx_1, idx_2 + 1)))
+        return Or(And(Conjunction(constraints_1), Channel.Merger(nodes, bound, idx_1 + 1, idx_2)),
+                  And(Conjunction(constraints_2), Channel.Merger(nodes, bound, idx_1, idx_2 + 1)))
