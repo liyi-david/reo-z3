@@ -7,6 +7,7 @@
 \usepackage{pgf}
 \usepackage{tikz}
 \usepackage{reotex}
+\usepackage{array}
 \usepackage{algorithm}
 \usepackage{algorithmic}
 \usepackage{amssymb}
@@ -28,7 +29,7 @@
 \newtheorem{lemma}{Lemma}[section]
 
 \lstset{
-    basicstyle=\ttfamily,
+    basicstyle=\ttfamily\small,
     numbers=left,
     numberstyle=\small,
     columns=flexible,
@@ -42,18 +43,20 @@
     framexleftmargin=17pt,
     framexrightmargin=5pt,
     framexbottommargin=4pt,
-    showstringspaces=false,
-    frame=single
+    showstringspaces=false
+    % frame=single
 }
 
 \lstdefinelanguage{coq}{
     keywords = {
         Parameter, Parameters, Variable, Variables,
         Fixpoint,
+        Definition,
         Stream, Prop,
         forall, exists,
         Axiom, Lemma, Goal, Theorem,
-        Proof, Qed
+        Proof, Qed,
+        Hypothesis, Section,
     }
 }
 
@@ -70,7 +73,7 @@
 %\pagestyle{plain}
 %\mainmatter
 
-\title{Compositional Reasoning about Connectors Using Coq and Z3}
+\title{Reasoning about Connectors Using Coq and Z3}
 
 %\titlerunning{Reasoning about Connectors in Coq}
 
@@ -83,9 +86,10 @@
 
 %\maketitle
 \begin{abstract}
-Reo is a channel-based exogenous coordination language in which complex coordinators, called connectors, are compositionally built out of simpler ones. In this paper, we present an approach to model and reason about connectors using Coq and Z3. %Coq is a proof assistant based on higher-order logic and $\lambda$-calculus.
-The model reflects the original structure of connectors simply and clearly. In our framework, basic connectors (channels) are interpreted as axioms and composition operations are specified as inference rules. Furthermore, connectors are interpreted as logical predicates which describe the relations
-between inputs and outputs. With such definitions provided, connector properties, as well as equivalence and refinement relations between different connectors, can be naturally formalized as \emph{goals} in Coq and easily proved using pre-defined \emph{tactics}. Particularly, to fulfill the proof of refinement relation, Z3 is used as an assistant tool for solving logical formulas.
+Reo is a channel-based exogenous coordination language in which complex coordinators, called connectors, are compositionally built out of simpler ones. In this paper, we present an approach to model and reason about connectors using Coq and Z3.
+The model reflects the original structure of connectors simply and clearly. In our framework, both basic connectors (channels) and composition operations are interpreted as axioms. Furthermore, connectors are interpreted as logical predicates which describe the relations
+between inputs and outputs. With such definitions provided, connector properties, as well as equivalence and refinement relations between different connectors, can be naturally formalized as \emph{goals} in Coq and proved using pre-defined \emph{tactics}, if satisfied by connectors. Furthermore, when fail to prove the properties, we use Z3, the SMT solver, to search for possible bounded counter examples automatically.
+% Particularly, to fulfill the proof of refinement relation, Z3 is used as an assistant tool for solving logical formulas.
 %\paragraph*{Keywords:}
 
 \end{abstract}
@@ -129,7 +133,7 @@ in \cite{JA12}.
 
 In a previous paper \cite{ZHL+17} we showed how to formally model and reason about connectors' properties in Coq. The basic idea of our approach is to model the behavior of a connector by representing it as a logical predicate which describes the relation among the timed data streams on the input and output nodes, and to reason about connectors' properties, as well as the equivalence and refinement relations between connectors, by using proof principles and tactics in Coq. Compared with existing approaches for verifying connectors' properties \cite{BBK+10,KB09,KKV12}, reasoning about connectors using theorem provers like Coq is especially helpful when we take infinite behavior into consideration. The coinductive proof principle makes it possible to prove connectors' properties easily while it is difficult (sometimes impossible) for other approaches (like model checking) because of the huge (or maybe infinite) number of states.
 
-In the current paper, we aim to provide a more complete account of the approach in \cite{ZHL+17} to formally model and reason about connectors. The main drawback of failing to check the complementary refinement relation in Coq is made up by using the constraint solver Z3. While Coq provides a platform to prove properties with a series of tactics and strategies to be considered, Z3 can be used as a component in the context %of other tools
+In the current paper, we aim to provide a more complete account of the approach in \cite{ZHL+17} to formally model and reason about connectors. The main drawback of failing to check the complementary refinement relation in Coq is partially made up by using the constraint solver Z3. While Coq provides a platform to prove properties with a series of tactics and strategies to be considered, Z3 can be used as a component in the context %of other tools
 that requires solving logical formulas. The logical formulas involved in the model of Reo should reflect the constraints of connectors and be consistent with their behavior.
 
 The approach is not a brand new idea, as we have already provided a solution for modeling Reo in Coq in \cite{LS15}, where connectors are represented in a constructive way, and verification is essentially based on simulations. We do believe that the approach in this paper is reasonably different from its predecessor \cite{LS15} where Coq seldom shows its real power. To be more specific, our new work has its certain
@@ -137,36 +141,35 @@ advantages comparing with \cite{LS15} in the following aspects:
 \begin{itemize}
 \item {\bf Modeling Method:} We use axioms to describe basic channels and their composition operations, which is more natural on a proof-assistant platform than the simulation-based approach in \cite{LS15}.
 \item {\bf Expression Power:} Any valid Coq expression can be used to depict properties, which is obviously more powerful than just using LTL formulas in \cite{LS15}. Furthermore, support for continuous time behavior is also possible in our approach in this paper.
-\item {\bf Refinement and Equivalence Checking:} In our framework, equivalence and refinement relations can be proved among different connectors, while the approach in \cite{LS15} is not capable of either equivalence or refinement checking. Furthermore, the constraint solver Z3 is adopted to prove non-refinement relations between connectors, while in \cite{ZHL+17} we can only derive proofs for refinement relations.
+\item {\bf Refinement and Equivalence Checking:} In our earlier work \cite{ZHL+17}, equivalence and refinement relations can be proved among different connectors, while the approach in \cite{LS15} is not capable of either equivalence or refinement checking. Furthermore, the constraint solver Z3 is adopted in this work to search for bounded counter examples when the refinement relations cannot be proved in Coq.
 \end{itemize}
 
 
-The paper is organized as follows: After this general introduction, we briefly summarize Reo, Coq and Z3
-in Section \ref{sec:pre}. Section \ref{sec:basicdef} shows the notion of timed data streams and some
-pre-defined auxiliary functions and predicates. Section \ref{sec:channelandoperator} presents the
-formal modeling of basic channels and operators, as well as complex connectors. Section
+The paper is organized as follows. After this general introduction, we briefly summarize Reo, Coq and Z3
+in Section \ref{sec:pre}. Section \ref{sec:channelandoperator} introduces the
+formal model of basic channels, operators and complex connectors in Coq. Section
 \ref{sec:verification} shows how to reason about connector properties and equivalence (or
-refinement) relations in our framework. Section \ref{sec:refinement} concentrates on the proof of refinement relation between two connectors.
-In Section \ref{sec:conclusion}, we conclude with some further research directions. Full source codes can be found at \cite{reo2coqfile} for further reference.
+refinement) relations under our Coq formalization. Section \ref{sec:refinement} provides a Reo model in Z3 and shows the usage of Z3 in refinement checking.
+In Section \ref{sec:conclusion}, we conclude with some further research directions. Full source codes can be found at \cite{reo2coq2Z3} for further reference.
 
 \section{Preliminaries}\label{sec:pre}
 
 In this section, we provide a brief introduction to the coordination language Reo, and the proof assistant tools Coq and Z3.
 
-\subsection{The Coordination Model Reo}
+\subsection{The Coordination Language Reo}
 Reo is a channel-based exogenous coordination language wherein complex coordinators, called connectors,
 are compositionally built out of simpler ones \cite{Arb04}.
 Further details about Reo and its semantics can be found in \cite{Arb04, AR03, BSAR06}.
 The simplest connectors are channels with well-defined behavior such as synchronous channels, FIFO channels, etc.
-Each channel in Reo has exactly two directed ends, with their own identities.
+% Each channel in Reo has exactly two directed ends, with their own identities.
 There are two types of channel ends: \emph{source} ends and \emph{sink} ends. A source channel end accepts
-data into the channel. A sink channel end dispenses data out of the channel.
+data into the channel, and a sink channel end dispenses data out of the channel.
 \begin{figure}
   \centering
   \begin{tikzpicture}
   \draw (0.7, 0.6) node[draw=none] {Sync};
   \sync{(0,1)}{(1.5,1)}{}
-  \draw (2.7, 0.6) node[draw=none] {Syncdrain};
+  \draw (2.7, 0.6) node[draw=none] {SyncDrain};
   \syncdrain{(2,1)}{(3.5,1)}{node[below]{}}
   \draw (4.7, 0.6) node[draw=none] {FIFO1};
   \fifoe{(4,1)}{(5.5,1)}{node[below]{}}
@@ -176,7 +179,7 @@ data into the channel. A sink channel end dispenses data out of the channel.
   \caption{Four types of basic channels.}\label{fig:basicchannel}
 \end{figure}
 
-The graphical notations of some basic channels are presented in Fig.~\ref{fig:basicchannel}, and their behavior can be interpreted as follows:
+The graphical notations of some basic channels are presented in Figure~\ref{fig:basicchannel}, and their behavior can be interpreted as follows:
 \begin{itemize}
 \item{\textbf{Sync:} a synchronous channel with one source end and one sink end. The pair of I/O operations on its two ends can succeed only simultaneously.}
 \item{\textbf{SyncDrain:} a synchronous channel which has two source ends.
@@ -217,28 +220,28 @@ Especially, the FIFO$1$ channel is an instace of FIFO$n$ where the buffer capaci
 \caption{Operations of channel composition.}\label{fig:channelcomposition}
 \end{figure}
 
-Complex connectors are constructed by composing simpler ones via the join and hiding operations. Channels are joined together in nodes. The set of channel ends coincident on a node is disjointly partitioned into the sets of source and sink channel ends that coincide on the node, respectively. Nodes are categorized into source, sink and mixed nodes, depending on whether all channel ends that coincide on a node are source ends, sink ends or a combination of the two. The hiding operation is used to hide the internal topology of a connector. The hidden nodes can no longer be accessed or observed from outside. There are three types of operations for channel composition: \emph{flow-through}, \emph{merge} and \emph{replicate}. Fig.~\ref{fig:channelcomposition} provides the graphical representation of these operations.
+Complex connectors are constructed by composing simpler ones via the \emph{join} and \emph{hiding} operations. Channels are joined together in nodes. The set of channel ends coincident on a node is disjointly partitioned into the sets of source and sink channel ends that coincide on the node, respectively. Nodes are categorized into source, sink and mixed nodes, depending on whether all channel ends that coincide on a node are source ends, sink ends or a combination of the two. The hiding operation is used to hide the internal topology of a connector. The hidden nodes can no longer be accessed or observed from outside. There are three types of operations for channel composition: \emph{flow-through}, \emph{merge} and \emph{replicate}. Figure~\ref{fig:channelcomposition} provides the graphical representation of these operations.
 
-\subsection{The Proof Assistant tools}
+\subsection{Coq and Z3}
 
-Coq\cite{huet1997coq} is a widely-used proof assistant tool, where denotational formalizations (e.g.
+Coq \cite{huet1997coq} is a widely-used proof assistant tool, where denotational formalizations (e.g.
 theorem and hypothesis) and operational formalizations (e.g. functions and algorithms) are naturally
 integrated. Moreover, it allows the interactive construction of formal proofs.
 The formal language used in Coq, \emph{Gallina}, provides a convenient way to define
 both programming statements and mathematical propositions, for example:
 \begin{lstlisting}[language=coq]
-  (* a variable definition *)
-  Variables a b: nat.
-  (* a simple non-recursive function *)
-  Definition inc(a:nat) := a + 1.
-  (* axioms don't have to be proved *)
-  Axiom inc_ax: forall c:nat, inc(c) > c.
-  (* theorems rely on proving *)
-  Theorem inc_eq: forall c:nat, inc(c) = c + 1.
-  Proof.
-    (* interactive proving based on tactics *)
-    auto.
-  Qed.
+(* a variable definition *)
+Variables a b: nat.
+(* a simple non-recursive function *)
+Definition inc(a:nat) := a + 1.
+(* axioms don't have to be proved *)
+Axiom inc_ax: forall c:nat, inc(c) > c.
+(* theorems rely on proving *)
+Theorem inc_eq: forall c:nat, inc(c) = c + 1.
+Proof.
+(* interactive proving based on tactics *)
+auto.
+Qed.
 \end{lstlisting}
 
 As shown in this example, there are two rather different mode in Coq's interactive shell. When
@@ -247,7 +250,7 @@ we start a \emph{Theorem}, or \emph{Lemma}, Coq jumps into the proving mode. We 
 different \emph{tactics} to reduce the proving goal and finally finish the formal proof.
 
 Furthermore, Coq is equipped with a set of well-written standard libraries. For example, as used in
-this paper, \emph{List} describes the widely-used finite list structure, \emph{Stream} provides a co-inductive
+this paper, \emph{Stream} provides a co-inductive
 definition of infinite lists, and \emph{Reals} defines various operations and theorems on real
 numbers. Usually, quite a few lemmas and theorems are pre-defined in such libraries, making it
 substantially easier to prove our goals.
@@ -276,45 +279,49 @@ substantially easier to prove our goals.
 %many propositions more easily.
 
 
-Z3 \cite{MouraB08} is an efficient SMT (Satisfiability Modulo Theories) Solver and a high performance theorem prover freely available from Microsoft. It can be used in various software verification and analysis applications. Acting as a SMT solver, Z3 expands to deciding the satisfiability (or dually the validity) of first order formulas with respect to combinations of theories such as: arithmetic, bit-vectors, arrays, and uninterpreted functions. Given the data and time constraints of connectors, it allows us to decide the satisfiability against properties or refinement relations. Z3 provides bindings for several programming languages. In this paper, we use the Z3 API in Python to construct the models and carry out experiments. The following example provides an intuitive understanding of the Z3 solver.
-\begin{lstlisting}[frame=single]
-x = Int('x')
-y = Int('y')
+Z3 \cite{MouraB08} is an efficient SMT (Satisfiability Modulo Theories) solver freely available from Microsoft. It can be used in various software verification and analysis applications. Acting as a SMT solver, Z3 expands to deciding the satisfiability (or dually the validity) of first order formulas with respect to combinations of theories such as: arithmetic, bit-vectors, arrays, and uninterpreted functions. Given the data and time constraints of connectors, it allows us to decide the satisfiability against properties or refinement relations. Z3 provides bindings for several programming languages. In this paper, we use \emph{Z3 python-bindings} to construct the models and carry out experiments. The following example provides an intuitive understanding of the Z3 solver.
+\begin{lstlisting}
+x, y = Int('x'), Int('y')
 
 s = Solver()
 s.add(x > 10, Or(x + y > 3, x - y < 2))
-#Solving constraints in the solver s
+# Solving constraints in the solver s
 print s.check()
 
-#Create a new scope
+# Create a new scope
 s.push()
 s.add(y < 11)
-#Solving updated set of constraints
+# Solving updated set of constraints
 print s.check()
 
-#Restoring state
+# Restoring state
 s.pop()
-#Solving restored set of constraints
+# Solving restored set of constraints
 print s.check()
 \end{lstlisting}
 
-This example contains two constraints at first. From these two constraints, we can see that Z3 supports Boolean operators, such as \emph{And}, \emph{Or}, \emph{Not} and \emph{Implies (implication)}, apart from the operators like $<$, $>$ for comparison.
-The command \emph{Solver()} creates a general purpose solver. Constraints can be added using the method \emph{add}. Once they are added to the solver, we can say that the constraints have been asserted in the solver. The method \emph{check()} solves the asserted constraints. Finally, the result is satisfiable (unsatisfiable) if a solution is (not) found, respectively. A solver may fail to solve a system of constraints and \emph{unknown} is returned. Each solver maintains a stack of assertions. The command \emph{push} creates a new scope by saving the current stack size. The command \emph{pop} removes any assertion performed between it and the matching \emph{push}.
-\section{Basic Definitions}\label{sec:basicdef}
+This example contains two constraints at first. From these two constraints, we can see that Z3 supports Boolean operators, such as \emph{And}, \emph{Or}, \emph{Not} and \emph{Implies}, apart from the operators like $<$, $>$ for comparison.
+The function \emph{Solver} creates a general purpose solver instance where constraints can be asserted through its \emph{add} method. The method \emph{check} solves the asserted constraints. Finally, the result is satisfiable (unsatisfiable) if a solution is (not) found, respectively. A solver may fail to solve a system of constraints and \emph{unknown} is returned. Each solver maintains a stack of assertions. The command \emph{push} creates a new scope by saving the current stack size. The command \emph{pop} removes all constraints that have been asserted after the last \emph{push} command.
 
-In this section, we briefly introduce the notion of timed data streams and some pre-defined auxiliary functions and predicates in Coq, which are used in the following sections for modeling connectors.
+
+\section{Formal Modeling in Coq}\label{sec:channelandoperator}
+In this section, we show how primitive connectors, i.e., channels, and operators for connector composition are specified in Coq and used for modeling of complex connectors. Basic channels, which can be regarded as axioms of the whole framework, are specified as logical predicates illustrating the relation between the timed data streams of input and output. When we need to construct a more complex connector, appropriate composition operators are applied depending on the topological structure of the connector.
+
+\subsection{Basic Definitions}\label{sec:basicdef}
+
+% In this section, we briefly introduce the notion of timed data streams and some pre-defined auxiliary functions and predicates in Coq, which are used in the following sections for modeling connectors.
 
 %\subsection{Timed data streams}
 The behavior of a connector can be formalized by means of data-flows at its sink and source nodes which are essentially infinite sequences. With the help of the stream library in Coq, such infinite data-flows can be defined as \emph{timed data streams}:
 \begin{lstlisting}[language=coq]
-    Definition Time := R.
-    Definition Data := nat.
-    (*Inductive Data : Set :=
-        |Natdata : nat-> Data
-        |Empty : Data.*)
-    Definition TD := Time * Data.
-    Variable Input : Stream TD.
-    Variable Output : Stream TD.
+Definition Time := R.
+Definition Data := nat.
+(*Inductive Data : Set :=
+    |Natdata : nat-> Data
+    |Empty : Data.*)
+Definition TD := Time * Data.
+Variable Input : Stream TD.
+Variable Output : Stream TD.
 \end{lstlisting}
 %
 In our framework, time is represented by real numbers. %Benefit from the completeness of real number system, we can express and carry out the effective operation of a quantity at any precision request.
@@ -324,22 +331,18 @@ We use the stream module in Coq to produce streams of TD objects.
 
 %\subsection{Auxiliary functions and predicates}
 Some auxiliary functions and predicates are defined to facilitate the representation of axioms for basic channels in Reo. This part can be extended for further use in different problems.
-The terms ``PrL" and ``PrR" take a pair of values (a, b) that has Cartesian product type A $\times$ B as the argument and return the first or second value of the pair, respectively.
+The terms \emph{PrL} and \emph{PrR} take a pair of values (a, b) that has Cartesian product type A $\times$ B as the argument and return the first or second value of the pair, respectively.
 %\begin{verbatim}
 %    Definition PrL {A B: Type}(pair: A * B) := (...).
 %    Definition PrR {A B: Type}(pair: A * B) := (...).
 %\end{verbatim}
 The following functions provide some judgment of time, which can make
 the description of axioms and theorems for connectors more concise and
-clear: ``Teq" means that time of two streams are equal and ``Tneq" has the
-opposite meaning. ``Tle"  (``Tgt") represents that time of the first stream is
+clear: \emph{Teq} means that time of two streams are equal and \emph{Tneq} has the
+opposite meaning. \emph{Tle}  (\emph{Tgt}) represents that time of the first stream is
 strictly less (greater) than the second stream. The judgement about
 equality of data is analogous to the judgement of time. The complete
 definition of these functions can be found at \cite{reo2coq2Z3}.
-
-
-\section{Formal Modeling of Basic Channels and Operators}\label{sec:channelandoperator}
-In this section, we show how primitive connectors, i.e., channels, and operators for connector composition are specified in Coq and used for modeling of complex connectors. Then we can apply the tactics provided in Coq to reason about connector properties. Basic channels, which can be regarded as axioms of the whole framework, are specified as logical predicates illustrating the relation between the timed data streams of input and output. When we need to construct a more complex connector, appropriate composition operators are applied depending on the topological structure of the connector.
 
 \subsection{Formal Modeling of Basic Channels}
 
@@ -351,63 +354,62 @@ into the channel are exactly the same as the stream that flows out of the channe
 \footnote{If we use $\alpha,\beta$ to denote the data streams that flow through the channel ends of a channel and $a,b$ to denote the time stream corresponding to the data streams, i.e., the $i$-th element $a(i)$ in $a$ denotes exactly the time moment of the occurrence of $\alpha(i)$, then we can easily obtain the specifications for different channels, as discussed in \cite{Sun12,SAA+12}. For example, a synchronous channel can be expressed as $\alpha=\beta \wedge \emph{a}=\emph{b}$.}.
 The Sync channel can be defined as follows in the Coq system:
 \begin{lstlisting}[language=coq]
-    Definition Sync (Input Output:Stream TD) : Prop :=
+Definition Sync (Input Output:Stream TD) : Prop :=
     Teq Input Output /\ Deq Input Output.
 \end{lstlisting}
 
 
 The channel of type SyncDrain is a synchronous channel that allows pairs of write operations pending on its two ends to succeed simultaneously. All written data items are lost. Thus, the SyncDrain channel is used for synchronising two timed data streams on its two source ends. This channel type is an important basic synchronization building block for the construction of more complex connectors. The SyncDrain channel can be defined as follows:
 \begin{lstlisting}[language=coq]
-    Definition SyncDrain (Input Output:Stream TD) : Prop :=
+Definition SyncDrain (Input Output:Stream TD) : Prop :=
     Teq Input Output.
 \end{lstlisting}
 
 
 The channel types FIFO and FIFO$n$ where $n$ is an integer greater than $0$ represent the
 typical unbounded and bounded asynchronous FIFO channels. A write to a FIFO channel always succeeds, and a write to a FIFO$n$ channel succeeds only if the
-number of data items in its buffer is less than its bounded capacity $n$. A read or take from a FIFO or FIFO$n$ channel suspends until the first data item
+number of data items in its buffer is less than its bounded capacity $n$. A read or take operation on a FIFO or FIFO$n$ channel suspends until the first data item
 in the channel buffer can be obtained and then the operation succeeds.
 %We use the $\overrightarrow{\emph{a}}$ to denote the tail of  a sequence \emph{a}.
 For simplicity, we take the FIFO1 channel as an example. This channel type requires that the time when it consumes a data item through its source end is earlier than the time when the data item is delivered through its sink end. Besides, as the buffer has the capacity 1, time of the next data item that flows in should be later than the time when the data in the buffer is delivered. We use intersection of predicates in its definition as follows:
 \begin{lstlisting}[language=coq]
-    Definition FIFO1(Input Output:Stream TD) : Prop :=
+Definition FIFO1(Input Output:Stream TD) : Prop :=
     Tle Input Output /\ Tle Output (tl Input) /\ Deq Input Output.
 \end{lstlisting}
 
-For a FIFO1 channel whose buffer already contains a data element \emph{e}, the communication can be initiated only if the data element \emph{e} can be taken via the sink end. In this case, the data stream that flows out of the channel should get an extra element \emph{e} settled at the beginning of the stream. And time of the stream that flows into the channel should be earlier than time of the tail of the stream that flows out. But as the buffer contains the data element \emph{e}, new data can be written into the channel only after the element \emph{e} has been taken. Therefore, time of the stream that flows out is earlier than time of the stream that flows in. The channel can be represented as the \begin{lstlisting}[language=coq]
-    Definition FIFO1e(Input Output:Stream TD)(e:Data) : Prop :=
+For a FIFO1 channel whose buffer already contains a data element \emph{e}, the communication can be initiated only if the data element \emph{e} can be taken via the sink end. In this case, the data stream that flows out of the channel should get an extra element \emph{e} settled at the beginning of the stream. And time of the stream that flows into the channel should be earlier than time of the tail of the stream that flows out. But as the buffer contains the data element \emph{e}, new data can be written into the channel only after the element \emph{e} has been taken. Therefore, time of the stream that flows out is earlier than time of the stream that flows in. The channel can be represented as:
+\begin{lstlisting}[language=coq]
+Definition FIFO1e(Input Output:Stream TD)(e:Data) : Prop :=
     Tgt Input Output /\ Tle Input (tl Output)
     /\ PrR (hd Output) = e  /\ Deq Input (tl Output).
 \end{lstlisting}
 
-In the following we choose Axiom to define LossySync and AsyncDrain
+In the following we choose Axiom to define LossySync
 because it is easier to use the coinductive expression to specify
-their behavior.
+its behavior.
 
 A LossySync channel behaves the same as a Sync channel, except that a write operation on its source end always succeeds immediately. If a compatible read or take operation is already pending on its sink end, the written data item is transferred to the pending operation and both succeed. Otherwise, the write operation succeeds and the data item is lost. The LossySync channel can be defined as follows:
 \begin{lstlisting}[language=coq]
-   Parameter LossySync: Stream TD -> Stream TD -> Prop.
-   Axiom LossySync_coind:
-     forall Input Output: Stream TD,
-     LossySync Input Output ->
-       (
-        (hd Output = hd Input  /\ LossySync (tl Input)(tl Output)) \/
-        LossySync(tl Input) Output
-       ).
+Parameter LossySync: Stream TD -> Stream TD -> Prop.
+Axiom LossySync_coind:
+    forall Input Output: Stream TD,
+    LossySync Input Output ->
+    (( hd Output = hd Input  /\ LossySync (tl Input)(tl Output)) \/
+       LossySync(tl Input) Output).
 \end{lstlisting}
 
-AsyncDrain is analogous to SyncDrain except that it guarantees that the pairs of write operations on the two channel ends never succeed simultaneously. Similarly it only has requirements on the time of the two streams on its opposite ends, but it requires that the times of the two streams are always different. The AsyncDrain channel can be defined as follows:
-\begin{lstlisting}[language=coq]
-    Parameter AsyncDrain: Stream TD -> Stream TD -> Prop.
-    Axiom AsyncDrain_coind:
-      forall Input1 Input2: Stream TD,
-      AsyncDrain Input1 Input2 ->
-        (~ PrL(hd Input1)  =  PrL (hd Input2) ) /\
-        (
-          ( (PrL(hd Input1) < PrL (hd Input2)) /\ AsyncDrain (tl Input1) Input2) /\
-          ( (PrL(hd Input1) > PrL (hd Input2))  /\ AsyncDrain Input1 (tl Input2) )
-        ).
-\end{lstlisting}
+% AsyncDrain is analogous to SyncDrain except that it guarantees that the pairs of write operations on the two channel ends never succeed simultaneously. Similarly it only has requirements on the time of the two streams on its opposite ends, but it requires that the times of the two streams are always different. The AsyncDrain channel can be defined as follows:
+% \begin{lstlisting}[language=coq]
+% Parameter AsyncDrain: Stream TD -> Stream TD -> Prop.
+% Axiom AsyncDrain_coind:
+%     forall Input1 Input2: Stream TD,
+%     AsyncDrain Input1 Input2 ->
+%     (~ PrL(hd Input1)  =  PrL (hd Input2) ) /\
+%     (
+%         ( (PrL(hd Input1) < PrL (hd Input2)) /\ AsyncDrain (tl Input1) Input2) /\
+%         ( (PrL(hd Input1) > PrL (hd Input2))  /\ AsyncDrain Input1 (tl Input2) )
+%     ).
+% \end{lstlisting}
 
 %Note that in the above definitions we choose Axiom to define LossySync and AsyncDrain
 %because it is easier to use the coinductive expression to specify their behavior.
@@ -438,15 +440,14 @@ node that delivers a data item out of \emph{AB} or \emph{CD}.
 Similar to the definition of basic channels, we define merge as the intersection of two predicates and use recursive definition here:
 %    Definition xor(a b: Prop) :=  (a \/ b) /\ ~(a /\ b).
 \begin{lstlisting}[language=coq]
-    Parameter merge:
-    Stream TD -> Stream TD ->Stream TD -> Prop.
-    Axiom merge_coind:
-      forall s1 s2 s3:Stream TD,
-      merge s1 s2 s3-> (
-        ~ (PrL(hd s1) = PrL(hd s2)) /\
-        ( (PrL(hd s1) < PrL(hd s2)) -> ((hd s3 = hd s1)  /\ merge (tl s1) s2 (tl s3)) ) /\
-        ( (PrL(hd s1) > PrL(hd s2)) -> ((hd s3 = hd s2)  /\ merge s1 (tl s2) (tl s3)) )
-      ).
+Parameter merge: Stream TD -> Stream TD ->Stream TD -> Prop.
+Axiom merge_coind:
+    forall s1 s2 s3:Stream TD,
+    merge s1 s2 s3-> (
+    ~ (PrL(hd s1) = PrL(hd s2)) /\
+    ( (PrL(hd s1) < PrL(hd s2)) -> ((hd s3 = hd s1)  /\ merge (tl s1) s2 (tl s3)) ) /\
+    ( (PrL(hd s1) > PrL(hd s2)) -> ((hd s3 = hd s2)  /\ merge s1 (tl s2) (tl s3)) )
+    ).
 \end{lstlisting}
 
 \begin{figure}
@@ -464,7 +465,7 @@ Similar to the definition of basic channels, we define merge as the intersection
 
 Based on the definition of basic channels and operators, more complex connectors can be constructed structurally.
 %As the whole structure of each connector has been determined, the rest work is to use the operators to connect appropriate  channels according to the structure of each connector.
-To show how a composite connector is constructed, we consider a simple example as shown in Fig. \ref{fig:compsyncfifo}, where a FIFO1 channel is attached
+To show how a composite connector is constructed, we consider a simple example as shown in Figure \ref{fig:compsyncfifo}, where a FIFO1 channel is attached
 to the sink end of a Sync channel. Assume \emph{AB} is of type Sync and \emph{BC} is of type FIFO1, then we can construct the required connector by
 illustrating \emph{Sync(A,B)} and \emph{FIFO1(B,C)}. The configuration and the functionality of the required connector can be specified using this concise method. Note that the composition operations can be easily generalized to the case of multiple nodes, where the modeling of connectors is similar. More
 examples can be found in Section \ref{sec:verification}.
@@ -474,7 +475,7 @@ examples can be found in Section \ref{sec:verification}.
 
 
 
-\section{Reasoning about Connectors}\label{sec:verification}
+\section{Reasoning about Connectors in Coq}\label{sec:verification}
 After modeling a connector in Coq, we can analyse and prove important properties of the connector. In this section, we give some examples to elucidate how to
 reason about connector properties and prove refinement/equivalence relations between different connectors, with the help of Coq.
 
@@ -485,7 +486,7 @@ then he/she applies commands called \emph{tactics} to decompose this goal into s
 process ends when all subgoals are completely solved. In the following, we use some examples to illustrate our approach instead of
 giving all the complex technical details.
 \begin{example}
-We first consider the connector given in Fig. \ref{fig:compsyncfifo}, which consists of two channels \emph{AB} and \emph{BC} with types Sync and FIFO1, respectively.
+We first consider the connector given in Figure \ref{fig:compsyncfifo}, which consists of two channels \emph{AB} and \emph{BC} with types Sync and FIFO1, respectively.
 We use $a$ and $b$ to denote the time streams when the corresponding data streams flow into and out of the Sync channel \emph{AB}, and
 $c$ to denote the time stream for the data stream that flows out of the FIFO1 channel \emph{BC}. Here we can see that a flow-through
 operation has acted on the mixed node \emph{B}. The time when the stream flows into the FIFO1 channel \emph{BC} is equal to the time when the
@@ -493,72 +494,75 @@ stream flows out of the Sync channel \emph{AB}. The following theorem states the
 axioms Sync and FIFO1, which can be used as hypotheses for the proof of the following theorem.
 \end{example}
 
-\begin{theorem}\label{the:tleac}
+\begin{theorem}[Transfer\_le]\label{the:tleac}
 $\forall A,B,C.\:Sync(A,B)\land FIFO1(B,C) \rightarrow Tle(A,C)$.
 \end{theorem}
 
 In Coq, the theorem can be proved as follows:
 \begin{lstlisting}[language=coq]
-    Theorem test1: forall A B C,
-      Sync A B /\ FIFO1 B C -> Tle A C.
-    Proof.
-        intros. destruct H. destruct H0.
-        intro n. rewrite H. apply H0.
-    Qed.
+Theorem thm_4_1: forall A B C,
+  Sync A B /\ FIFO1 B C -> Tle A C.
+Proof.
+    intros. destruct H. destruct H0.
+    intro n. rewrite H. apply H0.
+Qed.
 \end{lstlisting}
 
 First we give the Coq system a proposition
-\texttt{test1} which needs to be proved. The proposition is represented by a logical expression.
+\texttt{thm\_4\_1} which needs to be proved. The proposition is represented by a logical expression.
 Table \ref{test1} shows the detailed proving steps and the feedback that the Coq system provides during the proof.
 \begin{table}
+\small
+\renewcommand{\arraystretch}{1.2}
 \newcommand{\tabincell}[2]{\begin{tabular}{@{}#1@{}}#2\end{tabular}}
   \centering
-  \begin{tabular}{|c|c|c|}\hline
-\tabincell{c}{Step} & \tabincell{c}{Feedback}\\\hline
-\tabincell{c}{Theorem test1:\\\emph{forall A B C,} \\ \emph{Sync A B $\rightarrow$ FIFO1 B C}
-   \\ \emph{$\rightarrow$  Tle A C.}} & \tabincell{c}{ 1 subgoal:\\ \emph{forall A B C,} \\ \emph{Sync A B $\rightarrow$ FIFO1 B C  $\rightarrow$ Tle A C} } \\\hline
+  \begin{tabular}{|>{\tt}c|c|c|}\hline
+\tabincell{c}{Step} & \tabincell{c}{Feedback}
+\\\hline
+\tabincell{c}{Theorem thm\_4\_1:\\\emph{forall A B C,} \\ \emph{Sync A B $\rightarrow$ FIFO1 B C}
+   \emph{$\rightarrow$  Tle A C.}} & \tabincell{c}{ 1 subgoal:\\ \emph{forall A B C,} \\ \emph{Sync A B $\rightarrow$ FIFO1 B C  $\rightarrow$ Tle A C} } \\\hline
 \tabincell{c}{intros } & \tabincell{c}{ 1 subgoal: \emph{Tle A C} \\ \emph{H : Sync A B;
 H0 : FIFO1 B C}} \\\hline
 \tabincell{c}{destruct \emph{H} } & \tabincell{c}{ 1 subgoal:  \emph{Tle A C} \\ \emph{H : Teq A B;
 H1 : Deq A B;}  \\ \emph{H0 : FIFO1 B C}} \\\hline
 \tabincell{c}{destruct \emph{H0} } & \tabincell{c}{ 1 subgoal: \emph{Tle A C} \\ \emph{H : Teq A B;
 H1 : Deq A B;}\\ \emph{
-H0 : Tle B C; H2 : Tle C (tl B) $\wedge$ Deq B C }}\\ \hline
+H0 : Tle B C; H2 : Tle C (tl B$)\wedge D$eq B C }}\\ \hline
 \tabincell{c}{intro \emph{n} } & \tabincell{c}{ 1 subgoal: \emph{PrL (Str\_nth n A) $<$ PrL (Str\_nth n C)} \\ \emph{H : Teq A B;
 H1 : Deq A B;
 H0 : Tle B C; }\\
-\emph{H2 : Tle C (tl B)$\wedge$ Deq B C}} \\\hline
+\emph{H2 : Tle C (tl B$)\wedge D$eq B C}} \\\hline
 \tabincell{c}{rewrite \emph{H}} & \tabincell{c}{ 1 subgoal: \emph{PrL (Str\_nth n B) $<$ PrL (Str\_nth n C) }\\ \emph{H : Teq A B;
 H1 : Deq A B;
 H0 : Tle B C;}\\
-\emph{H2 : Tle C (tl B)$\wedge$Deq B C;
+\emph{H2 : Tle C (tl B)$\:\wedge\:$Deq B C;
 n : nat}} \\\hline
 \tabincell{c}{apply \emph{H0} } & \tabincell{c}{ No more subgoals} \\\hline
 \end{tabular}
+
 \caption{Steps and feedbacks for proving Theorem \ref{the:tleac}}\label{test1}
 \end{table}
 
 The advantages of using intersection of logical predicates to describe basic channels have emerged while proving this example.
-After constructing the new connector, we use ``intros'' to split conditions and conclusions. Then we can use ``destruct" to obtain the conditions for time and data separately,
-and make the proving procedure much more convenient. Once the concrete conditions are obtained, using ``intro"
-contributes to comparing each time point in a sequence element by element. Then by using ``rewrite" \emph{H}, we can make
+After constructing the new connector, we use \texttt{intros} to split conditions and conclusions. Then we can use \texttt{destruct} to obtain the conditions for time and data separately,
+and make the proving procedure much more convenient. Once the concrete conditions are obtained, using \texttt{intro}
+contributes to comparing each time point in a sequence element by element. Then by using \texttt{rewrite H}, we can make
 the proof a step forward with known conditions of the comparison of time \emph{a} and \emph{b}, and finally by
-``apply" \emph{H0} we can prove the goal. This is the implementation for reasoning about the constructed connector.
+\texttt{apply H0} we can prove the goal. This is the implementation for reasoning about the constructed connector.
 Note that proper selection of strategies and tactics is essential for the proof of connector properties.
 
 
 \begin{example}\label{ex:alternator}
-In this example, we show a more interesting connector named \emph{alternator} which consists of three channels \emph{AB}, \emph{AC} and \emph{BC} of type Syncdrain, FIFO1 and Sync, respectively. With the help of this connector, we can get data from node \emph{B} and \emph{A} alternatively at node \emph{C}.
+In this example, we show a more interesting connector named \emph{alternator} which consists of three channels \emph{AB}, \emph{AC} and \emph{BC} of type SyncDrain, FIFO1 and Sync, respectively. With the help of this connector, we can get data from node \emph{B} and \emph{A} alternatively at node \emph{C}.
 By using the axioms for the basic channels and operators of composition, we can get the connector as shown in Figure \ref{fig:alternator}(b). The two
 channels \emph{AC} and \emph{BC} are merged together at node \emph{C}. Before the merge operation, the connector's structure is as shown in
 Figure \ref{fig:alternator}(a), which is useful in the reasoning about the alternator.
 
-Here the replicate operation has been applied twice for the alternator: node \emph{A} becomes the common source node of \emph{Syncdrain (A,B)} and \emph{FIFO1(A,C1)}, and node \emph{B} becomes the common source node of \emph{Syncdrain(A,B)} and \emph{Sync(B,C2)}. Let the time streams when the
+Here the replicate operation has been applied twice for the alternator: node \emph{A} becomes the common source node of \emph{SyncDrain (A,B)} and \emph{FIFO1(A,C1)}, and node \emph{B} becomes the common source node of \emph{SyncDrain(A,B)} and \emph{Sync(B,C2)}. Let the time streams when the
 data streams flow into the two source nodes \emph{A} and \emph{B} be denoted by $a$ and $b$, and the time streams when the data streams
 flow out of the channels \emph{FIFO1(A,C1)} and \emph{Sync(B,C2)} be denoted by $c1$ and $c2$, respectively. Theorem \ref{the:alternator}
-specifies the property $c2<c1 \wedge c1<tl (c2)$ of the connector in Fig. \ref{fig:alternator}(a). The connector is based on the axioms
-Sync, Syncdrain and FIFO1. These three corresponding axioms are used as hypotheses for the proof of this theorem.
-%Prior to prove the property of the alternator, we first show a transformed version of the property mentioned above. It will be useful in the proof of the property of alternator. The transformed version consists of three channels. \emph{AB}, \emph{AC1} and \emph{BC2} are of type Syncdrain, FIFO1 and Sync which are shown on the left side of Figure \ref{alternator}.
+specifies the property $c2<c1 \wedge c1<tl (c2)$ of the connector in Figure \ref{fig:alternator}(a). The connector is based on the axioms
+Sync, SyncDrain and FIFO1. These three corresponding axioms are used as hypotheses for the proof of this theorem.
 \end{example}
 
 \begin{figure}
@@ -588,49 +592,51 @@ Sync, Syncdrain and FIFO1. These three corresponding axioms are used as hypothes
 \label{fig:alternator}
 \end{figure}
 
-\begin{theorem}[subtest]\label{the:alternator}
-\[
-\forall A,B,C1,C2\,.\, SyncDrain(A,B)\land FIFO1(A,C1)\land Sync(B,C2)  \rightarrow Tle(C2,C1) \wedge Tle(C1, tl(C2))
-\]
+\begin{theorem}[Unmerge]\label{the:alternator}
+
+$\forall A,B,C1,C2\,.\,
+SyncDrain(A,B)\land FIFO1(A,C1)\land Sync(B,C2)  \rightarrow Tle(C2,C1) \wedge Tle(C1, tl(C2))
+$
 \end{theorem}
 
 We first introduce some lemmas to facilitate the proof.
 \begin{lstlisting}[language=coq]
-    Lemma transfer_eq : forall s1 s2 s3 : Stream TD,
-    ((Teq s1 s2) /\ (Teq s2 s3)) -> (Teq s1 s3).
-    Lemma transfer_eqtl : forall s1 s2 : Stream TD,
-    (Teq s1 s2) -> (Teq tl s1)) (tl s2)).
-    Lemma transfer_leeq : forall s1 s2 s3 : Stream TD,
-    ((Tle s1 s2) /\ (Teq s2 s3)) -> (Tle s1 s3).
-    Lemma transfer_hdle : forall s1 s2 : Stream TD,
-    (Tle s2 s1) -> (PrL (hd s1) > PrL (hd s2)).
+Lemma transfer_eq : forall s1 s2 s3 : Stream TD,
+  ((Teq s1 s2) /\ (Teq s2 s3)) -> (Teq s1 s3).
+Lemma transfer_eqtl : forall s1 s2 : Stream TD,
+  (Teq s1 s2) -> (Teq tl s1)) (tl s2)).
+Lemma transfer_leeq : forall s1 s2 s3 : Stream TD,
+  ((Tle s1 s2) /\ (Teq s2 s3)) -> (Tle s1 s3).
+Lemma transfer_hdle : forall s1 s2 : Stream TD,
+  (Tle s2 s1) -> (PrL (hd s1) > PrL (hd s2)).
 \end{lstlisting}
 
 In Coq, the theorem can be proved as follows. Note that the formalism is slightly different from the previous one. By the \emph{section} environment, Coq is able to encapsulate hypothesizes as assumptions of the theorem. So the two definitions are exactly equivalent.
 
 \begin{lstlisting}[language=coq]
-    Section Alt.
-    Hypothesis D1: SyncDrain A B.
-    Hypothesis D2: FIFO1 A C1.
-    Hypothesis D3: Sync B C2.
-    Theorem subtest:
-       (Tle C2 C1)  /\  (Tle C1 (tl C2)).
+Section Alt.
+Hypothesis D1: SyncDrain A B.
+Hypothesis D2: FIFO1 A C1.
+Hypothesis D3: Sync B C2.
+Theorem thm_4_2:
+   (Tle C2 C1)  /\  (Tle C1 (tl C2)).
 \end{lstlisting}
 
-After constructing the connector in Fig. \ref{fig:alternator}(a), we use ``destruct" to obtain the conditions for time and data, respectively.
-Since the goal we are going to prove is an intersection of logical predicates, we use ``split" to obtain the single subgoals represented by
-logical predicates. Besides, ``intros" contributes to comparing each data in a sequence element by element. Then ``rewrite" and ``apply" are
+After constructing the connector in Figure \ref{fig:alternator}(a), we use \texttt{destruct} to obtain the conditions for time and data, respectively.
+Since the goal we are going to prove is an intersection of logical predicates, we use \texttt{split} to obtain the single subgoals represented by
+logical predicates. Besides, \texttt{intros} contributes to comparing each data in a sequence element by element. Then \texttt{rewrite} and \texttt{apply} are
 used similarly for multiple times until the goal is proved finally. %We can see that a new tactic named \emph{split} is used in the proof of
 %this property.
 Concrete proof steps and feedbacks are specified in Table \ref{tb:proof}.
 
-\begin{table}[htb]
+\begin{table}[H]
 \newcommand{\tabincell}[2]{\begin{tabular}{@{}#1@{}}#2\end{tabular}}
   \centering
-  \footnotesize
-  \begin{tabular}{|c|c|c|}\hline
+  \small
+  \renewcommand{\arraystretch}{1.2}
+  \begin{tabular}{|>{\tt}c|c|c|}\hline
 \tabincell{c}{Step} & \tabincell{c}{Feedback}\\\hline
-\tabincell{c}{Theorem subtest%:\\((Tle C2) C1) $\wedge$ ((Tle C1) (tl C2))
+\tabincell{c}{Theorem thm\_4\_2%:\\((Tle C2) C1) $\wedge$ ((Tle C1) (tl C2))
 }
    & \tabincell{c}{ 1 subgoal: \emph{Tle C2 C1 $\wedge$ Tle C1 (tl C2)}} \\\hline
 \tabincell{c}{destruct \emph{D2} } & \tabincell{c}{ 1 subgoal: \emph{Tle C2 C1 $\wedge$ Tle C1 (tl C2)}
@@ -716,26 +722,26 @@ n : nat}} \\\hline
 \caption{Steps and feedback}\label{tb:proof}
 \end{table}
 
-%The proof of Theorem \ref{the:alternator} for the connector in Fig. \ref{fig:alternator}(a) can be used to simplify the proof for the following property of alternator.
+%The proof of Theorem \ref{the:alternator} for the connector in Figure \ref{fig:alternator}(a) can be used to simplify the proof for the following property of alternator.
 
 An additional hypothesis is needed for the proof of alternator which merges \emph{C1} and \emph{C2} into a common node \emph{C}. Based on the three
 hypotheses for channels and the additional hypothesis, the theorem of alternator is presented as the following proposition which needs to be proved:
 \begin{lstlisting}[language=coq]
-    Hypothesis D4: merge C1 C2 C.
-    Theorem test:
-    hd(C) = hd(C2) /\ merge C1 (tl C2) (tl C).
-    Proof.
-      destruct subtest.  (* ... *)
+Hypothesis D4: merge C1 C2 C.
+Theorem alternator:
+  hd C = hd C2 /\ merge C1 (tl C2) (tl C).
+Proof.
+  destruct thm_4_2.  (* ... *)
 \end{lstlisting}
-Here we only present the first step which shows how a proven theorem can be applied in another proof and omit the full details. %because of the page limitation.
-And it greatly simplifies the process of proving the property of alternator.
+Here we only present the first step which shows how a proven theorem can be applied in another proof and omit the full details.
+Note that the property of the transformed version mentioned at the beginning of the example turns out to be very useful in the proof of the property of alternator. The transformed version consists of three channels. \emph{AB}, \emph{AC1} and \emph{BC2} are of type SyncDrain, FIFO1 and Sync shown on the left side of Figure \ref{fig:alternator}, which greatly simplifies the process of proving the property of alternator.
 
 
 \subsection{Refinement and Equivalence}
 
 A refinement relation between connectors which allows us to systematically develop connectors in a step-wise fashion, may help to bridge
 the gap between requirements and the final implementations. The notion of refinement has been widely used in different system descriptions.
-For example, in data refinement\cite{RE98}, the `concrete' model is required to have \emph{enough redundancy} to represent all the elements
+For example, in data refinement \cite{RE98}, the `concrete' model is required to have \emph{enough redundancy} to represent all the elements
 of the `abstract' one. This is captured by the definition of a surjection from the former into the latter (the \emph{retrieve map}). If
 models are specified in terms of pre and post-conditions, the former are weakened and the latter strengthened under refinement \cite{Jon90}.
 In process algebra, refinement is usually discussed in terms of several `observation' preorders, and most of them justify
@@ -752,7 +758,7 @@ In the following, we show two examples of such refinement and equivalence relati
 
 \begin{example}[Refinement]
 \label{ex:refine}
-Taking the two connectors in Fig. \ref{refine} into consideration, connector \emph{Q} is a refinement of connector \emph{P} (denoted by $\emph{P} \sqsubseteq \emph{Q}$).
+Taking the two connectors in Figure \ref{refine} into consideration, connector $Q$ is a refinement of connector $P$ (denoted by $P \sqsubseteq Q$).
 \begin{figure}
 \vspace{0cm}
 \centering
@@ -784,14 +790,14 @@ Taking the two connectors in Fig. \ref{refine} into consideration, connector \em
 
 We have mentioned that newly constructed connectors can be specified as theorems. Given arbitrary input timed
 data stream at node \emph{A} and output timed data streams at nodes \emph{C}, \emph{D}, essentially connector
-\emph{Q} is a refinement of another connector \emph{P} only if the behavior property of \emph{P} can
-be derived from \emph{theorem Q}, i.e., the property of connector \emph{Q}. Intuitively, connector \emph{P} enables the
+$Q$ is a refinement of another connector $P$ only if the behavior property of $P$ can
+be derived from \emph{theorem Q}, i.e., the property of connector $Q$. Intuitively, connector $P$ enables the
 data written to the source node \emph{A} to be asynchronously taken out via the two sink nodes \emph{C} and \emph{D}, but
 it has no constraints on the relationship between the time of the two output events. On the other hand,
-connector \emph{Q} refines this behavior by synchronizing the two sink nodes, which means that the two output
+connector $Q$ refines this behavior by synchronizing the two sink nodes, which means that the two output
 events must happen simultaneously. To be more precise, we use $c,d$ to denote the time streams of the two outputs
-and $a$ to denote the time stream of the input. Connector \emph{P} satisfies condition $a<c\wedge a<d$ and
-connector \emph{Q} satisfies $a<c\wedge a<d \wedge c=d$.
+and $a$ to denote the time stream of the input. Connector $P$ satisfies condition $a<c\wedge a<d$ and
+connector $Q$ satisfies $a<c\wedge a<d \wedge c=d$.
 \end{example}
 
 The refinement relation can be formally defined in Coq as:
@@ -806,7 +812,7 @@ The refinement relation can be formally defined in Coq as:
 
 
 \begin{lstlisting}[language=coq]
-    Theorem refinement : forall A C D,
+Theorem refinement : forall A C D,
     (exists B, (FIFO1 A B) /\ (Sync B C) /\ (Sync B D)) ->
     (exists E, (Sync A E) /\ (FIFO1 E C) /\ (FIFO1 E D)).
 \end{lstlisting}
@@ -820,10 +826,9 @@ The refinement relation can be formally defined in Coq as:
 
 To prove this refinement relation, we first introduce a lemma which is frequently used in the proof.
 \begin{lemma}[Eq]\label{lemma:eq}
-$\forall$A,B: Stream TD.
-  Sync (A,B) $\Leftrightarrow$ A$=$B.
+$\forall A,B: Stream TD.\:Sync (A,B) \Leftrightarrow A = B$.
 \end{lemma}
-The lemma means that \emph{Sync(A,B)} and \emph{A$=$B} can be derived
+The lemma means that $Sync(A, B)$ and $A=B$ can be derived
 from each other. Although this lemma seems to make the presence of
 Sync channels in connectors redundant, it is not the case for most
 connectors. For example, if we consider
@@ -841,30 +846,30 @@ In the process of constructing the connectors, the flow-through and replicate op
 \label{fig:equivalence}
 \end{figure}
 
-Fig. \ref{fig:equivalence} shows the flow chart for the proof steps of
+Figure \ref{fig:equivalence} shows the flow chart for the proof steps of
 connector refinement in this example.
 
 
 We now show the specific tactics used in the proof of refinement
-$\emph{P} \sqsubseteq \emph{Q}$ for connectors \emph{P} and \emph{Q}
+$P \sqsubseteq Q$ for connectors $P$ and $Q$
 in this example.
-We need to find a timed data stream which specifies the data-flow through node \emph{E} of connector \emph{P}, i.e., an appropriate \emph{$E$} that satisfies $Sync(A,E)\wedge FIFO1(E,C) \wedge FIFO1(E,D)$.
+We need to find a timed data stream which specifies the data-flow through node \emph{E} of connector $P$, i.e., an appropriate \emph{$E$} that satisfies $Sync(A,E)\wedge FIFO1(E,C) \wedge FIFO1(E,D)$.
 
-First we employ `intros' to acquire a simpler subgoal $\exists E_{0}. Sync(A,E_{0})
-\wedge FIFO1(E_{0},C) \wedge FIFO1(E_{0},D)$. Then we assert that \emph{E} $=$ \emph{A}.% which leads to  $Sync(A,A)\wedge FIFO1(A,C) \wedge FIFO1(A,D)$.
-After using `split', we split the goal into two subgoals \emph{Sync (A, E)} and \emph{FIFO1 (E, C) $\wedge$ FIFO1 (E, D)}. And by `rewrite' \emph{$H_{0}$ ($H_{0}$: E $=$ A)}, we replace the two subgoals with \emph{Sync (A, A)} and \emph{FIFO1 (E, C) $\wedge$ FIFO1 (E, D)}, respectively.
+First we employ \texttt{intros} to acquire a simpler subgoal $\exists E_{0}. Sync(A,E_{0})
+\wedge FIFO1(E_{0},C) \wedge FIFO1(E_{0},D)$. Then we assert that $E=A$.
+After using \texttt{split}, we split the goal into two subgoals $Sync (A, E)$ and $FIFO1 (E, C) \wedge FIFO1 (E, D)$. And by \texttt{rewrite $H_{0}$} ($H_{0}: E = A)$, we replace the two subgoals with $Sync (A, A)$ and $FIFO1 (E, C) \wedge FIFO1 (E, D)$, respectively.
 
-Through `apply' Lemma \ref{lemma:eq} (\emph{Eq}), we have \emph{A $=$ A} in place of \emph{Sync (A, A)}. Next the tactic \emph{reflexivity} makes the subgoal \emph{A $=$ A} proved directly. Up to now, the initial subgoal \emph{Sync (A, E)} has been achieved.
+Through \texttt{apply} Lemma \ref{lemma:eq} (\emph{Eq}), we have $A = A$ in place of $Sync (A, A)$. Next the tactic \texttt{reflexivity} makes the subgoal $A = A$ proved directly. Up to now, the initial subgoal $Sync (A, E)$ has been achieved.
 
-Using `split' again, the remaining unproven subgoal is split into two subgoals \emph{FIFO1 (E, C)} and \emph {FIFO1 (E, D)}.
-After destructing the precondition three times, we succeed in obtaining three hypotheses: \emph{ H: FIFO1 (A, x); H1: Sync (x, C); H2: Sync (x, D)}. Assume x $=$ C and then using tactics \emph{apply Eq} and \emph{assumption}, \emph{assertion x $=$ C} is proved easily. Meanwhile, we get hypothesis \emph{H3: x $=$ C}. Via \emph{Rewrite $\leftarrow$H3}, we bring left in place of the right side of the equation \emph{H3: x = C} into \emph{FIFO1 (E, C)} and have \emph{FIFO1 (E, x)}. Similarly, rewrite \emph{H0} and further we get the result \emph{FIFO1 (A, x)} which is exactly hypothesis \emph{H}. By using `assumption', the second subgoal is proved already.
-Using substantially the same tactic steps, \emph{FIFO1 (E, D)} can be proved. Finally, we have no more subgoals. Note that there is a new tactic `reflexivity' used in the proof, which is actually synonymous with `apply refl equal'. We can use it to prove that two statements are equal.
+Using \texttt{split} again, the remaining unproven subgoal is split into two subgoals \emph{FIFO1 (E, C)} and \emph {FIFO1 (E, D)}.
+After destructing the precondition three times, we succeed in obtaining three hypotheses: \emph{ H: FIFO1 (A, x); H1: Sync (x, C); H2: Sync (x, D)}. Assume $x = C$ and then using tactics \texttt{apply Eq} and \texttt{assumption}, assertion $x = C$ is proved easily. Meanwhile, we get hypothesis \emph{H3: x $=$ C}. Via \emph{Rewrite $\leftarrow$H3}, we bring left in place of the right side of the equation \emph{H3: x = C} into \emph{FIFO1 (E, C)} and have \emph{FIFO1 (E, x)}. Similarly, \texttt{rewrite H0} and further we get the result \emph{FIFO1 (A, x)} which is exactly hypothesis \emph{H}. By using \texttt{assumption}, the second subgoal is proved already.
+Using substantially the same tactic steps, \emph{FIFO1 (E, D)} can be proved. Finally, we have no more subgoals. Note that there is a new tactic \texttt{reflexivity} used in the proof, which is actually synonymous with \texttt{apply refl equal}. We can use it to prove that two statements are equal.
 
 
 
 \begin{example}[Equivalence]
-%When connector \emph{P} is a refinement of  connector \emph{Q} and \emph{Q} is a refinement of \emph{P}, we say that connector \emph{P} and \emph{Q} is equivalent.
-For the connector \emph{P} in Example \ref{ex:refine}, we can add three more basic channels to build a new connector \emph{R} which is equivalent to \emph{Q}. \emph{R} can be interpreted similarly based on basic channels and operators. We will omit the details for its construction here and prove the equivalence between the two connectors \emph{R} and \emph{Q} directly.
+%When connector $P$ is a refinement of  connector $Q$ and $Q$ is a refinement of $P$, we say that connector $P$ and $Q$ is equivalent.
+For the connector $P$ in Example \ref{ex:refine}, we can add three more basic channels to build a new connector \emph{R} which is equivalent to $Q$. \emph{R} can be interpreted similarly based on basic channels and operators. We will omit the details for its construction here and prove the equivalence between the two connectors \emph{R} and $Q$ directly.
 %The specific channels and operators used to construct the new connector will not be repeated here. Next we will prove the equivalence of the two connectors.
 \end{example}
 
@@ -907,16 +912,16 @@ For the connector \emph{P} in Example \ref{ex:refine}, we can add three more bas
 
 Equivalence relationship between the two connectors can be formalized as:
 \begin{lstlisting}[language=coq]
-    Theorem equivalence: forall A B C,
-      (exists E F G,
-        (Sync A E) /\ (FIFO1 E F) /\ (Sync F B) /\
-        (FIFO1 E G) /\ (Sync G C) /\ (SyncDrain F G)
-      ) <->
-      (exists D,
-        (FIFO1 A D) /\ (Sync D B) /\ (Sync D C)
-      ).
+Theorem equivalence: forall A B C,
+  (exists E F G,
+    (Sync A E) /\ (FIFO1 E F) /\ (Sync F B) /\
+    (FIFO1 E G) /\ (Sync G C) /\ (SyncDrain F G)
+  ) <->
+  (exists D,
+    (FIFO1 A D) /\ (Sync D B) /\ (Sync D C)
+  ).
 \end{lstlisting}
-The proof of this theorem has two steps. Firstly, we prove that the new connector \emph{R} is a refinement of connector \emph{Q}.
+The proof of this theorem has two steps. Firstly, we prove that the new connector \emph{R} is a refinement of connector $Q$.
 We hope to find an appropriate \emph{$D$} that satisfies
 \[
 FIFO1(A,D)\wedge Sync(D,B) \wedge Sync(D,C)
@@ -927,226 +932,199 @@ FIFO1(A,F) \land Sync(F,B) \wedge Sync(F,C)
 \]
 From Lemma \ref{lemma:eq}, we have $Sync(A,E)$, or $A=E$. Therefore, \emph{FIFO1(E,F)} can be replaced by \emph{FIFO1(A,F)}. By adopting \emph{FIFO1(E,F)} and \emph{FIFO1(E,G)}, we can prove that the data sequences at \emph{F} and \emph{G} are equal. Similarly, data sequences at $C$, $G$ and $F$ are also equal, wrt. $Sync(G,C)$.
 
-Further according to \emph{Sync(G,C)} and \emph{Syncdrain(F,G)}, the time sequences at \emph{F} and \emph{C} are proved equal. With the combination of relations on time and data between \emph{F} and \emph{C}, we can draw the conclusion \emph{Sync(F,C)}.
+Further according to \emph{Sync(G,C)} and \emph{SyncDrain(F,G)}, the time sequences at \emph{F} and \emph{C} are proved equal. With the combination of relations on time and data between \emph{F} and \emph{C}, we can draw the conclusion \emph{Sync(F,C)}.
 
 
 Up to now, we present a proof for \emph{Sync(F,C)} and \emph{FIFO1(A,F)} by the derivation. Besides, \emph{Sync(F,B)} is already declared in the assumptions. Consequently, the refinement relation has been proved.
 
-Secondly, we prove that connector \emph{Q} is a refinement of connector \emph{R}.
+Secondly, we prove that connector $Q$ is a refinement of connector \emph{R}.
 We hope to find appropriate timed data streams at \emph{E,F,G}  which satisfy
 \begin{eqnarray*}
 \emph{Sync(A,E)}&\wedge& \emph{Sync(G,C)} \wedge \emph{FIFO1(E,G)}\wedge \emph{Sync(F,B)}\\
- &\wedge& \emph{FIFO1(E,F)}\wedge \emph{Syncdrain(F,G)}.
+ &\wedge& \emph{FIFO1(E,F)}\wedge \emph{SyncDrain(F,G)}.
 \end{eqnarray*}
 We can directly assume $E=A$, $F=D$ and $G=D$. Now we only need to prove
-\emph{Sync(A,A)} $\wedge$  \emph{Sync(D,C)}  $\wedge$  \emph{FIFO1(A,D)} $\wedge$  \emph{Sync(D,B)} $\wedge$ \emph{FIFO1(A,D)} $\wedge$ \emph{Syncdrain(D,D)}, which can be easily derived from the assumptions.
+$Sync(A,A) \wedge  Sync(D,C)  \wedge  FIFO1(A,D) \wedge  Sync(D,B) \wedge FIFO1(A,D) \wedge SyncDrain(D,D)$, which can be easily derived from the assumptions.
 
 
 \section{Refinement Checking in Z3} \label{sec:refinement}
-Modelling and reasoning of Reo connectors in Coq can only provide a proof of that one connector is indeed a refinement of the other connector when coming to refinement checking, although it allows us to reason about a relatively wide range of properties. Moreover, the refinement relation is a fairly important part of properties, which has been investigated in many applications. Therefore, in order to fulfill the proof of the refinement relation, Z3 solver is needed as an assistant tool, particularly applied to refinement checking.
+As shown previously, modeling and reasoning of Reo connectors in Coq allows us to reason about a relatively wide range of properties. However, when it comes to refinement checking, it is only capable of proving that one connector is indeed a refinement of the other one. Moreover, the refinement relation is a fairly important part of properties, which has been investigated in many applications. When Coq fails to provide a proof for the refinement relation, we use Z3, the SMT solver, to search for bounded counter examples. If a counter example is successfully located, it means that there is no refinement relation between the connectors.
+
 \subsection{Basic Channels}
-Before using Z3 to fulfill the proof of refinement relation, we need to implement the construction of connectors and also define the refinement checking function in a way that fits in with Z3 solver. Typically, connector construction starts with the definition of basic channels and composition operators. The formalization of basic framework is important and primary, so that we can further formalize our reasoning within this model.
+\label{subsec:basicchannelsinZ3}
 
-Coinciding with the definition of channels in Coq, we dealt with both time and data relation constraints in the basic definition. An auxiliary function \emph{Conjunction} is used to take the conjunction of every constraint in the constraint lists parameterized by \emph{constraints}.
+We first need to implement the construction of connectors and also define the refinement checking function in a way that fits in with Z3. Typically, connector construction starts with the definition of basic channels and composition operators. The formalization of basic framework is important and primary, so that we can further formalize our reasoning within this model.
 
-By means of function \emph{Conjunction}, basic channels are defined concisely and neatly. For example, the specific behavior constraints for \emph{Sync} channel are classified into two types: data constraints and time constraints. The description and the definition of \emph{Sync} in Coq have already clearly expressed the behavior pattern it needs to follow: each item in data and time streams of output specified as ``node[1]'' is equivalent to the timed data items of input specified as ``node[0]'', which are exactly data and time constraints. As they are both requirements that we need to satisfy no matter data or time is related, each constraint in the list will all be merged finally.
+Coinciding with the definition of channels in Coq, we dealt with both time and data relation constraints in the basic definition. An auxiliary function \texttt{Conjunction} is used to take the conjunction of every constraint in the constraint lists parameterized by \emph{constraints}.
+By means of \texttt{Conjunction}, basic channels are defined concisely and neatly. For example, the specific behavior constraints for \emph{Sync} channel are classified into two types: data constraints and time constraints. The description and the definition of \emph{Sync} in Coq have already clearly expressed the behavior pattern it needs to follow: each item in timed data streams of output specified as ``node[1]'' is equivalent to the timed data items of input specified as ``node[0]'', which are exactly data and time constraints. As they are both requirements that we need to satisfy no matter data or time is related, each constraint in the list will all be combined finally.
 %\lstset{language=Python}
-\begin{lstlisting}[frame=single]
+\begin{lstlisting}
 def Sync(nodes, bound):
    assert len(nodes) == 2
    constraints = []
    for i in range(bound):
-     constraints +=
-        [ nodes[0]['data'][i] == nodes[1]['data'][i] ]
-     constraints +=
-        [ nodes[0]['time'][i] == nodes[1]['time'][i] ]
+     constraints += [ nodes[0]['data'][i] == nodes[1]['data'][i] ]
+     constraints += [ nodes[0]['time'][i] == nodes[1]['time'][i] ]
    return Conjunction(constraints)
 \end{lstlisting}
 
-\emph{Syncdrain} channel are defined in a similar way. On the basis of the behavior of \emph{Syncdrain} channel, there are only time related constraints to be needed, i.e., equivalence of each item in two time streams of the two inputs.
-\begin{lstlisting}[frame=single]
+\emph{SyncDrain} channel is defined in a similar way. On the basis of the behavior of \emph{SyncDrain} channel, only time related constraints are needed, i.e., equivalence of corresponding items in two time streams of the two inputs.
+\begin{lstlisting}
 def SyncDrain(nodes, bound):
    assert len(nodes) == 2
    constraints = []
    for i in range(bound):
-       constraints +=
-            [nodes[0]['time'][i] == nodes[1]['time'][i]]
+       constraints += [nodes[0]['time'][i] == nodes[1]['time'][i]]
    return Conjunction(constraints)
 \end{lstlisting}
 
-Regarding \emph{FIFO1} channels, constraints related data is the same as \emph{Sync} channels. But there are more time related constraints. As the buffer capacity is one, the relations of each item in the input time stream and output time stream need to be carefully dealt with, especially that the next input should be later than the present output. If the buffer contains a data item at first, i.e. the variant version \emph{FIFO1e} channel, then the constraints related to data and time are just a little different. Note that the data item ``\emph{e}'' in the buffer should be the first one for transit and all the differences made to the constraints result from it. At last, their corresponding constraint lists consist of constraint statements similar to the statements above. In the programming, the data item ``e'' is specifically replaced by the integer 1.
-\begin{lstlisting}[frame=single]
+Regarding \emph{FIFO1} channel, data related constraints are the same as the \emph{Sync} channel. But there are different time related constraints for the \emph{FIFO1} channel. As the buffer capacity is one, the relations of each item in the input time stream and output time stream need to be carefully dealt with, especially that the next input should be later than the present output. If the buffer contains a data item at the beginning, i.e. the variant version \emph{FIFO1e} channel, then the constraints related to data and time are just a little different. Note that the data item ``\emph{e}'' in the buffer should be the first one for transit and all the differences made to the constraints result from it. At last, their corresponding constraint lists consist of constraint statements similar to the statements above.
+\begin{lstlisting}
 def Fifo1(nodes, bound):
    assert len(nodes) == 2
    constraints = []
    for i in range(bound):
-      constraints +=
-                  [ nodes[0]['data'][i] == nodes[1]['data'][i] ]
-      constraints +=
-                  [ nodes[0]['time'][i] <  nodes[1]['time'][i] ]
-      if i:
-          constraints +=
-                  [ nodes[0]['time'][i] > nodes[1]['time'][i-1] ]
+      constraints += [ nodes[0]['data'][i] == nodes[1]['data'][i] ]
+      constraints += [ nodes[0]['time'][i] <  nodes[1]['time'][i] ]
+      if i != 0:
+          constraints += [ nodes[0]['time'][i] > nodes[1]['time'][i-1] ]
    return Conjunction(constraints)
 \end{lstlisting}
-\begin{lstlisting}[frame=single]
-def Fifo1e(nodes, bound):
-   assert len(nodes) == 2
-   constraints = []
-   constraints += [nodes[1]['data'][0] == 1]
-   for i in range(bound-1):
-      constraints +=
-                  [nodes[0]['data'][i] == nodes[1]['data'][i + 1]]
-      constraints +=
-                  [nodes[0]['time'][i] < nodes[1]['time'][i + 1]]
-   for i in range(bound):
-      constraints +=
-                  [nodes[0]['time'][i] > nodes[1]['time'][i]]
-   return Conjunction(constraints)
+\begin{lstlisting}
+def Fifo1e(e):
+
+  def Fifo1eInstance(nodes, bound):
+    assert len(nodes) == 2
+    constraints = []
+    constraints += [nodes[1]['data'][0] == e]
+    for i in range(bound-1):
+        constraints += [nodes[0]['data'][i] == nodes[1]['data'][i + 1]]
+        constraints += [nodes[0]['time'][i] < nodes[1]['time'][i + 1]]
+    for i in range(bound):
+        constraints += [nodes[0]['time'][i] > nodes[1]['time'][i]]
+    return Conjunction(constraints)
+
+  return Fifo1eInstance
 \end{lstlisting}
 
-In accordance with the behavior of \emph{Lossy} channel, each item of the input stream may or may not be lost. If a timed data item is lost, then the corresponding output gets nothing. If not, it behaves exactly like \emph{Sync} channel, so in this case the data and time related constraints are identical with those in the definition of \emph{Sync} channel. The biggest difference is that \emph{Lossy} channel should be defined in a recursive way according to its own distinctive behavior. Note that the constraints are added recursively which is in great coincidence with the original definition.
-\begin{lstlisting}[frame=single]
-def Lossy(nodes, bound, idx = 0, num = 0):
+In accordance with the behavior of \emph{LossySync} channel, each item of the input stream may or may not be lost. If a timed data item is lost, then the corresponding output gets nothing. If not, it behaves exactly like a successful transit of \emph{Sync} channel, so in this case the data and time related constraints are identical with those in the definition of \emph{Sync} channel. The biggest difference is that \emph{LossySync} channel should be defined in a recursive way according to its own distinctive behavior. Note that the constraints are added recursively which is in great coincidence with the original definition.
+\begin{lstlisting}
+def LossySync(nodes, bound, idx = 0, num = 0):
    assert len(nodes) == 2
    if bound == num:
      return True
    if bound == idx:
      return True
-   constraints_0 = []
-   constraints_1 = []
-   constraints_0 +=
-           [ nodes[0]['data'][idx] != nodes[1]['data'][num]]
-   constraints_0 +=
-           [ nodes[0]['time'][idx] != nodes[1]['time'][num]]
-   constraints_1 +=
-           [ nodes[0]['data'][idx] == nodes[1]['data'][num]]
-   constraints_1 +=
-           [ nodes[0]['time'][idx] == nodes[1]['time'][num]]
-   return Or(And(Conjunction(constraints_0),
-             Channel.Lossy(nodes, bound, idx + 1, num)),
-             And(Conjunction(constraints_1),
-             Channel.Lossy(nodes, bound, idx + 1, num + 1))
-             )
+   constraints_0 , constraints_1 = [], []
+   constraints_0 += [ nodes[0]['time'][idx] != nodes[1]['time'][num]]
+   constraints_1 += [ nodes[0]['data'][idx] == nodes[1]['data'][num]]
+   constraints_1 += [ nodes[0]['time'][idx] == nodes[1]['time'][num]]
+   return Or(
+     And(Conjunction(constraints_0), Channel.LossySync(nodes, bound, idx + 1, num)),
+     And(Conjunction(constraints_1),  Channel.LossySync(nodes, bound, idx + 1, num + 1))
+   )
 \end{lstlisting}
-\subsection{Composition Operators}
-While the basic channels are already well defined as the basis of the whole construction framework, the composition operators also need to be specified for the large-scale connector construction just like cement for bricks.
+\subsection{Composition Operators}\label{sec:compoperatorZ3}
+While the basic channels are already well defined as the basis of the whole construction framework, the composition operators also need to be specified for large-scale connectors' construction just like cement for bricks. There are three kinds of composition operators: \emph{replicate}, \emph{flow-through} and \emph{merge}.
 
-Among the three types of composition operators, the most important and difficult one is \emph{Merge}, which is specially dealt with as a channel \emph{Merger} in our model. \emph{Replicate} and \emph{flow-through} operators are both implicitly achieved when we compose channels to construct connectors using the same node names. A simple example for the implementation of \emph{replicate} is \emph{c1.connect(`Sync', `A', `E'), c1.connect(`Fifo1', `E', `F'), c1.connect(`Fifo1', `E', `G')} where messages from node `E' are copied to send to nodes `F' and `G' simultaneously. As for \emph{flow-through} operator, a simple implemented example is \emph{c2.connect(`Fifo1', `A', `D'), c2.connect(`Sync', `D', `B')} where the timed data stream flows from node `A' to node `B' through the mixed node `D'. In these two examples, both \emph{c1} and \emph{c2} belong to the \emph{connector} class which will be elaborated in detail in the next module.
+Both \emph{replicate} and \emph{flow-through} operators can be implicitly achieved when we compose channels to construct connectors using same node names. A simple example for the implementation of \emph{replicate} is \texttt{c1.connect('Sync', 'A', 'E'), c1.connect('Fifo1', 'E', 'F'), c1.connect('Fifo1', 'E', 'G')} where the message that node \texttt{E} receives from \texttt{A} is duplicated and sent to \texttt{F} and \texttt{G} simultaneously. As for \emph{Flow-through} operator, a simple example is \texttt{c2.connect('Fifo1', 'A', 'D'), c2.connect('Sync', 'D', 'B')} where the timed data stream flows from node \texttt{A} to node \texttt{B} through the mixed node \texttt{D}. In these two examples, \texttt{c1} and \texttt{c2} both belong to the \texttt{Connector} class which will be elaborated in detail later.
 
-Although the composition operator \emph{Merge} is treated as a channel \emph{Merger}, it also plays the same part in the construction of connectors.  Plus the two composition operators above: \emph{replicate} and \emph{flow-through}, they are sufficiently enough for the whole construction of any connector. For each item of the output stream, there is a nondeterministic choice between the two input nodes. Hence, the \emph{Merger} channel also needs to be defined in a recursive way like \emph{Lossy} channel. Note that the constraints also conform well to the original definition of \emph{Merge}. From the definition and implementation of the three composition operators, they are ensured to serve as same as the original composition operations.
- 
-Concluded from the two recursive definitions, an additional advantage of defining \emph{Lossy} and \emph{Merger} channels in this way is that it can preserve the behavioral pattern to a great extent without any assumption, such as priorities of reading or taking data from the two input streams.
-\begin{lstlisting}[frame=single]
+Among the three types of composition operators, the most difficult one is \emph{Merge}, which is specially dealt with as a channel \emph{Merger} in our model. Together with the other two kinds of composition operators: \emph{replicate} and \emph{flow-through}, they are sufficiently enough for the complete construction of any connector, which can serve as the original set of composition operations. For each item in the output stream of the \emph{Merger} channel, there is a non-deterministic choice between the two input nodes. Hence, the \emph{Merger} channel also needs to be defined in a recursive way like the \emph{LossySync} channel. Note that the constraints also conform well to the original semantics of the \emph{merge} operator. Concluded from the two recursive definitions, an additional advantage of defining \emph{LossySync} and \emph{Merger} channel in this way is that it can preserve the behavioral pattern to a great extent without any assumption such as priorities of reading or taking data from the two input streams.
+\begin{lstlisting}
 def Merger(nodes, bound, idx_1 = 0, idx_2 = 0):
    assert len(nodes) == 3
    if bound == idx_1 + idx_2:
      return True
-   constraints_1 = []
-   constraints_2 = []
-   constraints_1 +=
-    [ nodes[0]['data'][idx_1] == nodes[2]['data'][idx_1 + idx_2]]
-   constraints_1 +=
-    [ nodes[0]['time'][idx_1] == nodes[2]['time'][idx_1 + idx_2]]
-   constraints_1 +=
-    [ nodes[0]['time'][idx_1] <  nodes[1]['time'][idx_2]]
-   constraints_2 +=
-    [ nodes[1]['data'][idx_2] == nodes[2]['data'][idx_1 + idx_2]]
-   constraints_2 +=
-    [ nodes[1]['time'][idx_2] == nodes[2]['time'][idx_1 + idx_2]]
-   constraints_2 +=
-    [ nodes[1]['time'][idx_2] <  nodes[0]['time'][idx_1]]
-   return Or(And(Conjunction(constraints_1),
-             Channel.Merger(nodes, bound, idx_1 + 1, idx_2)),
-             And(Conjunction(constraints_2),
-             Channel.Merger(nodes, bound, idx_1, idx_2 + 1))
-             )
+   constraints_1 , constraints_2 = [] , []
+   constraints_1 += [ nodes[0]['data'][idx_1] == nodes[2]['data'][idx_1 + idx_2]]
+   constraints_1 += [ nodes[0]['time'][idx_1] == nodes[2]['time'][idx_1 + idx_2]]
+   constraints_1 += [ nodes[0]['time'][idx_1] <  nodes[1]['time'][idx_2]]
+   constraints_2 += [ nodes[1]['data'][idx_2] == nodes[2]['data'][idx_1 + idx_2]]
+   constraints_2 += [ nodes[1]['time'][idx_2] == nodes[2]['time'][idx_1 + idx_2]]
+   constraints_2 += [ nodes[1]['time'][idx_2] <   nodes[0]['time'][idx_1]]
+   return Or(
+     And(Conjunction(constraints_1), Channel.Merger(nodes, bound, idx_1 + 1, idx_2)),
+     And(Conjunction(constraints_2), Channel.Merger(nodes, bound, idx_1, idx_2 + 1))
+   )
 \end{lstlisting}
 
-\subsection{Reasoning about Refinement Relation}
-With basic channels and composition operators well formulated above, the next step is to construct Reo connectors in this framework. In our model, the \emph{connector} is defined as a new class, which provides a method of constructing complex connectors out of the basic channels and composition operators.
-The statements inside a class definition are function definitions. We have seen the function `connect' used in the two simple examples of \emph{replicate} and \emph{flow-through}.
-\begin{lstlisting}[frame=single]
+\subsection{Refinement Checking}
+With basic channels and composition operators well formulated above, the next step is to construct Reo connectors in this framework. In our model, \texttt{Connector} is defined as a class, which provides a method of constructing complex connectors out of the basic channels and composition operators.
+The statements inside the class definition are function definitions. We have seen the function \texttt{connect} used in the two simple examples of \emph{replicate} and \emph{flow-through} in Section \ref{sec:compoperatorZ3}.
+\begin{lstlisting}
 class Connector:
     def __init__(self):
         self.channels = []
+
     def connect(self, channel, *nodes):
         self.channels += [(channel, nodes)]
         return self
+
+    def isRefinementOf(self, abstraction, bound):
+      ...
 \end{lstlisting}
 
-Another function \textbf{\emph{isRefinementOf}} is the most crucial one in refinement checking. The result of the function is Boolean, i.e., a connector either is or not a refinement of another connector. According to the definition of refinement relation in section \ref{sec:verification}, we have a formula to represent it properly: $Q \rightarrow P$ if and only if the behavior property of connector \emph{P} can be derived from the property of connector \emph{Q}, i.e., $\emph{P} \sqsubseteq \emph{Q}$. The background theory of the definition of function  \textbf{\emph{isRefinementOf}} is based on first order logic. Initially, if \emph{Q} is indeed a refinement of \emph{P}, i.e., $Q \rightarrow P$, it can be rephrased as $\neg Q \vee P$. If Z3 solver presents a model satisfying the negation of this formula, then the refinement relation is falsified by a counterexample. On the contrary, if there doesn't exist a counterexample, we say that the refinement relation, $P\subseteq Q$, holds within the given bound.
+Another function \texttt{isRefinementOf} is the most crucial one in refinement checking. The result type of the function is Boolean, i.e., a connector either is or is not a refinement of another connector. According to the definition of refinement relation in Section \ref{sec:verification}, we have a formula to represent it properly: $P \sqsubseteq Q$ if and only if the behavior property of connector $P$ can be derived from the property of connector $Q$, i.e., $Q \rightarrow P$. If $Q$ is indeed a refinement of $P$, it can be rephrased as $\neg Q \vee P$. If Z3 solver presents a model satisfying the negation of this formula, then the refinement relation is falsified by a counter example. On the contrary, if there doesn't exist a counter example within a given bound, we say that the refinement relation, $P\sqsubseteq Q$, holds within the bound.
+The formal definition of \texttt{isRefinementOf} is given in Algorithm \ref{alg:refineZ3}. The complete definition of the function can be found at \cite{reo2coq2Z3}.
 
-The soundness of the function \textbf{\emph{isRefinementOf}} is presented as a theorem as follows.
-\begin{theorem}[Soundness Theorem]
-Fake counterexamples won't be produced by the algorithm.
-\end{theorem}
-
-\begin{proof}
-Assume that the bound we set is \emph{b}. For any channel, the constraints added to Z3 solver are bounded, i.e., only part of the constraints of the timed data streams are fed to Z3. Let the set of all constraints of connectors being considered be $\Sigma$ and the set of bounded ones be $\sigma$. We have $\sigma \sqsubset \Sigma$. If there exists a counterexample $\pi$ and the weaker constraints can't be satisfied: $\pi \nvDash \sigma$, then we can deduce that $\pi \nvDash \Sigma$. Let $\Pi$ be the full timed data stream where $\pi$ is the prefix of it and $\Pi \setminus \pi$ satisfies all the left constraints $\Sigma \setminus \sigma$.
+ Algorithm \ref{alg:refineZ3} produces no spurious counter example.
+Assume that the bound we set is \emph{b}. For any channel, the constraints added to Z3 solver are bounded, i.e., only constraints on the prefixes of timed data streams are fed to Z3. Let $\Sigma$ be the set of all constraints of connectors and $\sigma$ be the set of bounded ones. If there exists a counter example $\pi$ ($\pi$ is a set of timed data streams' prefixes  corresponding to the nodes) that fails to satisfy the weaker constraints: $\pi \nvDash \sigma$, then we can deduce that $\pi \nvDash \Sigma$. Let $\Pi$ be the full timed data stream where $\pi$ is the prefix of it and $\Pi \setminus \pi$ satisfies all the left constraints $\Sigma \setminus \sigma$.
 A valid prefix leads to a valid timed data stream, hence we have $\Pi \nvDash \Sigma$.
-Thus, the counterexamples are always sound and genuine.
-\end{proof}
+Thus, the counter examples generated by Algorithm \ref{alg:refineZ3} are always sound and genuine.
 
-The formal definition of \textbf{\emph{isRefinementOf}} is presented in the Algorithm.~\ref{algorithm1}, with the details left out. The complete
-definition of the function can be found at \cite{reo2coq2Z3}.
-\begin{algorithm}[t]
-    \caption{\ \ Q.isRefinementOf (P, bound)}\label{algorithm1}
+
+\begin{algorithm}[H]
+    \caption{\ \ Q.isRefinementOf (P, bound)}\label{alg:refineZ3}
     \begin{algorithmic}[1]
         \REQUIRE Both P and Q are connectors.
-        \ENSURE A boolean result: \emph{True} or \emph{False with a counterexample}
-        \FOR{channel \emph{t} $\leftarrow$ \emph{Q}}
-        	\FOR{node \emph{n} $\leftarrow$ \emph{t}}
-				\IF{\emph{n} is a new node}
-					\STATE \emph{\large i.}generate the corresponding variable like 					
-						\newline  \{`time':[n\_t\_0, n\_t\_1,...,n\_t\_(bound-1)],\  `date':[n\_d\_0, n\_d\_1,...,n\_d\_(bound-1)]\}
-						\newline
-						\newline \emph{\large ii.}add time constraints like ``n\_t\_0 $\geq$ 0  and  n\_t\_i $<$ n\_t\_i+1'' into \emph{Solver()}
+        \ENSURE A boolean result: \emph{True} or \emph{False with a counter example}
+        \STATE $solver\leftarrow$ create a Z3 Solver instance
+        \STATE $nodes\leftarrow \{\}$
+        \FOR{$ch \leftarrow \mbox{channels in } Q$}
+        	\FOR{$n\leftarrow \mbox{channel ends in } ch$}
+				\IF{$n\not\in nodes$}
+					\STATE $tds_n\leftarrow\{ 					time :[n\_t\_0, \cdots,n\_t\_(bound-1)],\  data:[n\_d\_0, \cdots,n\_d\_(bound-1)]\}$
+            \STATE $nodes[n]\leftarrow tds_n$
+            \STATE add time constraints  $n\_t\_0 \geq 0  \land  n\_t\_i < n\_t\_i+1$ to $solver$
 				\ENDIF
 			\ENDFOR
-		\STATE Add the constraints between different nodes of the same channel into \emph{Solver()} according to the property of channels.
+		\STATE add channel-specific constraints to $solver$ according to the definitions in Section~\ref{subsec:basicchannelsinZ3}
         \ENDFOR
         \newline
-        \STATE foralls = []      %\% to store new variable
-        \STATE absGlobalConstr = None %\% to store all constraints under P
-        \STATE absTimeConstr = None %\% to store all timed constraints under P
-        \FOR{channel \emph{t} $\leftarrow$ \emph{P}}
-        	\FOR{node \emph{n} $\leftarrow$ \emph{t}}
-				\IF{\emph{n} is a new node}
-					\STATE \emph{\large i.}generate the corresponding variable like 					
-						\newline \{`time':[n\_t\_0, n\_t\_1,...,n\_t\_(bound-1)], `date':[n\_d\_0, n\_d\_1,...,n\_d\_(bound-1)]\}
-						\newline
-						\newline \emph{\large ii.}add \emph{n} into forall
-						\newline
-						\newline \emph{\large iii.}add time constraints like ``n\_t\_0 $\geq$ 0  and  n\_t\_i $<$ n\_t\_i+1'' into absTimeConstr
+        \STATE $foralls \leftarrow \{\}$     %\% to store new variable
+        \STATE $absGlobalConstr \leftarrow \{\}$ %\% to store all constraints under P
+        \STATE $absTimeConstr \leftarrow \{\}$ %\% to store all timed constraints under P
+        \FOR{$ch\leftarrow \mbox{channels in } P$}
+        	\FOR{$n\leftarrow \mbox{channel ends in } ch$}
+				\IF{$n\not\in nodes\cup foralls$}
+					\STATE $tds_n\leftarrow\{ 					time :[n\_t\_0, \cdots,n\_t\_(bound-1)],\  data:[n\_d\_0, \cdots,n\_d\_(bound-1)]\}$
+          \STATE $foralls[n]\leftarrow tds_n$
+					\STATE add time constraints $n\_t\_0 \geq 0  \land  n\_t\_i < n\_t\_i+1$ to $absTimeConstr$
 				\ENDIF
-			\STATE add the constraints between different nodes of the same channel into absGlobalConstr according to the property of channels.
+			\STATE add channel-specific constraints to $absGlobalConstr$ according to the definitions in Section~\ref{subsec:basicchannelsinZ3}
 			\ENDFOR
 		\ENDFOR
 		\newline
-	\IF{absTimeConstr is not None}
+
 		\STATE $absGlobalConstr = \neg \ (absTimeConstr \cap absGlobalConstr)  $
-	\ELSE
-		\STATE $absGlobalConstr = \neg \ absGlobalConstr$
-	\ENDIF
-	\IF{forall is not empty}
-		\STATE apply \emph{ForAll} to absGlobalConstr
-			 and add those constraints into \emph{Solver()}
-    \ELSE
-    	\STATE add absGlobalConstr into \emph{Solver()}
-	\ENDIF	
-    \STATE \emph{Solver.check()}.
+    \STATE \textbf{let} $foralls$ \textbf{be} $\{n_1,\cdots,n_m\}$, add the following constraint to $solver$
+    \STATE
+    \hspace{2em}$(\forall n_1\_t\_0)\cdots(\forall n_1\_t\_(bound-1))(\forall n_1\_d\_0)\cdots(\forall n_1\_d\_(bound-1))\cdots$
+    \STATE \hspace{2em}$(\forall n_m\_t\_0)\cdots(\forall n_m\_t\_(bound-1))(\forall n_m\_d\_0)\cdots(\forall n_m\_d\_(bound-1))\:absGlobalConstr$
+    \newline
+    \STATE \emph{solver.check()}
     \end{algorithmic}
 \end{algorithm}
 
 
 \begin{example}
-To get some intuition for this, consider a simple case where the two connectors are constructed as follows:
-\emph{sync = Connector(), sync.connect
-(`Sync', `A', `B'); fifo1 = Connector(),
-fifo1.connect(`Fifo1', `A', `B')}. 
-The two simple connectors are actually \emph{Sync(A,B)} and \emph{Fifo1(A,B)}. Note that a \emph{FIFO1} channel is not a refinement of a \emph{Sync} channel. After invoking the function \emph{isRefinementOf}, we can obtain the result of the refinement relation checking: \emph{fifo1.isRefinementOf(sync)}. The result and the counterexample Z3 solver yields are presented as follows.
-\begin{lstlisting}[frame=single]
+We consider two simple connectors \emph{Sync(A,B)} and \emph{Fifo1(A,B)}, where the \emph{Fifo1} channel is not a refinement of the \emph{Sync} channel. These channels can be constructed with the following python codes.
+\begin{lstlisting}
+sync = Connector(); sync.connect('Sync', 'A', 'B')
+fifo1 = Connector(); fifo1.connect('Fifo1', 'A', 'B')}
+\end{lstlisting}
+After invoking the function \texttt{isRefinementOf}, we can obtain the result of the refinement relation checking \texttt{fifo1.isRefinementOf(sync, 10)} and the counter example that Z3 solver yields, which are presented as follows. Here we use \texttt{A\_d\_i} to denote the $i^{th}$ element in the data stream of $A$ and \texttt{A\_t\_i} to denote the $i^{th}$ element in its time stream.
+\begin{lstlisting}
 False
 A_d_0 = 0, A_d_1 = 0, A_d_2 = 0, A_d_3 = 0, A_d_4 = 0,
 A_d_5 = 0, A_d_6 = 0, A_d_7 = 0, A_d_8 = 0, A_d_9 = 0,
@@ -1158,44 +1136,47 @@ B_t_0 = 1, B_t_1 = 3, B_t_2 = 5, B_t_3 = 7, B_t_4 = 9,
 B_t_5 = 11,B_t_6 = 13,B_t_7 = 15,B_t_8 = 17,B_t_9 = 19.
 \end{lstlisting}
 
-Note that the counterexample is easy to understand. There exist two corresponding timed data streams whose time satisfies the constraints of \emph{FIFO1} channel, but doesn't satisfy the time constraints of \emph{Sync} channel.
+Note that the counter example is easy to understand. There exist two corresponding timed data streams whose time satisfies the constraints of \emph{FIFO1} channel, but doesn't satisfy the constraints of \emph{Sync} channel.
 \end{example}
 \begin{example}
-Another simple example is also to seek the refinement relation between two basic channels. The construction process is similar to the above example: \emph{sync = Connector(), sync.connect(`Sync', `A', `B'); lossy = Connector(), lossy.connect(`Lossy', `A', `B')}. We know that \emph{Sync} channel is a refinement of \emph{Lossy} channel. When \emph{Lossy} channel behaves well enough to lose no data items, it behaves exactly like \emph{Sync} channel. On the contrary, \emph{Lossy} channel is not a refinement of \emph{Sync} channel, which is consistent with the result \emph{False} given by the Z3 solver. The counterexample is also very intelligible. Note that the first four timed data items were lost with the last timed data item transferred successfully, which is consistent with the behavior constraints of \emph{Lossy} channel and obviously not in concordance with the constraints of \emph{Sync} channel.
-\begin{lstlisting}[frame=single]
+Another simple example is also to seek the refinement relation between two basic channels \emph{Sync(A,B)} and \emph{LossySync(A,B)}. The construction process is similar to the above one.
+\begin{lstlisting}
+sync = Connector(); sync.connect('Sync', 'A', 'B')
+lossy = Connector(); lossy.connect(`LossySync', 'A', 'B')
+\end{lstlisting}
+We know that \emph{Sync} channel is a refinement of \emph{LossySync} channel. When \emph{LossySync} channel behaves well enough to lose no data items, it behaves exactly like \emph{Sync} channel. On the contrary, \emph{LossySync} channel is not a refinement of \emph{Sync} channel, which is consistent with the following result from execution of \texttt{lossy.isRefinementOf(sync, 10)}. The counter example is also very intelligible. Note that the last timed data item was lost with the previous nine timed data items being transferred successfully, which is consistent with the behavior constraints of \emph{LossySync} channel and obviously not in concordance with the constraints of \emph{Sync} channel.
+\begin{lstlisting}
 False
-A_d_0 = 2, A_d_1 = 0, A_d_2 = 2, A_d_3 = 3, A_d_4 = 1,
+A_d_0 = 0, A_d_1 = 0, A_d_2 = 1, A_d_3 = 2, A_d_4 = 3,
+A_d_5 = 4, A_d_6 = 5, A_d_7 = 6, A_d_8 = 7, A_d_9 = 0,
 A_t_0 = 0, A_t_1 = 1, A_t_2 = 2, A_t_3 = 3, A_t_4 = 4,
-B_d_0 = 1,
-B_t_0 = 4.
+A_t_5 = 5, A_t_6 = 6, A_t_7 = 7, A_t_8 = 8, A_t_9 = 10,
+B_d_0 = 0, B_d_1 = 0, B_d_2 = 1, B_d_3 = 2, B_d_4 = 3,
+B_d_5 = 4, B_d_6 = 5, B_d_7 = 6, B_d_8 = 7,
+B_t_0 = 0, B_t_1 = 1, B_t_2 = 2, B_t_3 = 3, B_t_4 = 4,
+B_t_5 = 5, B_t_6 = 6, B_t_7 = 7, B_t_8 = 8, B_t_9 = 9,
 \end{lstlisting}
 \end{example}
 
 Before demonstrating complementary refinement checking between large-scale connectors, we will present some experiment results of bounded refinement and equivalence relation checking in the next two examples.
 \begin{example}
 \label{ex:equivalence1}
-In this example, we consider about the two connectors in Fig.~\ref{refine} again. In  Example \ref{ex:refine}, we have seen the refinement relation checking between the two connectors in Coq. However, tactics and strategies can be too professional to comprehend or to tackle with. Although Z3 can only provide a bounded refinement relation checking for connectors, it will be much easier to check the refinement relation as we don't need to master concrete theorem proving tactics. All we need to do is to construct the connectors in the way accepted by Z3 solver and use the well-defined function \emph{isRefinementOf}.
-\begin{lstlisting}[frame=single]
+In this example, we consider the two connectors in Figure~\ref{refine} again. In  Example \ref{ex:refine}, we have seen the refinement checking between the two connectors in Coq. However, tactics and strategies can be too professional to comprehend or to tackle with. Although Z3 can only provide a bounded refinement relation checking for connectors, it will be much easier to check the refinement relation as we don't need to master concrete theorem proving tactics. All we need to do is to construct the connectors in the way accepted by Z3 solver and use the function \texttt{isRefinementOf} to check the relation between them.
+\begin{lstlisting}
 c1 = Connector()
-c1.connect('Sync', 'A', 'M')
-c1.connect('Fifo1', 'M', 'B')
-c1.connect('Fifo1', 'M', 'C')
+c1.connect('Sync', 'A', 'E').connect('Fifo1', 'E', 'C').connect('Fifo1', 'E', 'D')
+
 c2 = Connector()
-c2.connect('Fifo1', 'A', 'N')
-c2.connect('Sync', 'N', 'B')
-c2.connect('Sync', 'N', 'C')
+c2.connect('Fifo1', 'A', 'B').connect('Sync', 'B', 'C').connect('Sync', 'B', 'D')
 \end{lstlisting}
-Notice that the \emph{replicate} operator is applied twice in the construction process. Assume the bound is ten and then carry out the function \emph{c2.isRefinementOf(c1, 10)}. Finally, we can get the result \emph{True} which means that \emph{Connector Q} in Fig.~\ref{refine} is indeed a refinement of \emph{Connector P}. We can further extend the bound and the time complexity increases linearly as no recursively defined channels are involved.
-\end{example}
-\begin{example}
-This example checks the equivalence relation between the connectors in Fig.~\ref{refine1}. Construct the two connectors first in the way similar to the example \ref{ex:equivalence1} and invoke the function \emph{isRefinementOf} in two directions.
-When giving the bound ten, the results of refinement checking for the two directions are both \emph{True}. With the yielded results, we can conclude that the two connectors are in equivalence relation within the bound ten.
+Assume the bound is 10 and then carry out the function \texttt{c2.isRefinementOf(c1, 10)}. Finally, we can get the result \emph{True} which means that \emph{Connector Q} in Figure~\ref{refine} is indeed a refinement of \emph{Connector P} within bound 10. We can further extend the bound and the time complexity increases linearly as no recursively defined channels are involved.
 \end{example}
 
 \begin{example}
-In this example, we will take the well-known Reo connector \emph{Exclusive Router} into consideration. This connector and its variant are shown in Fig.~\ref{fig:router}. The \emph{variant router} is defined like \emph{router} with one major difference: one of the two \emph{Lossy} channels is replaced with a \emph{Sync} channel. Therefore, the behavior of the variant router is actually not exclusive and all data items will be transported to node \emph{E} rather than being transmitted to node \emph{E} and \emph{F} exclusively in the original router. Notice that the variant router is a refinement of the original router and conversely not. Construct these two connectors first and set the bound to ten. Invoke the function \emph{isRefinementOf} in two directions, i.e., \emph{c2.isRefinementOf(c1, 10), c1.isRefinementOf(c2, 10)} where \emph{c2} is the variant router. We can find the results Z3 solver yields are \emph{True} and \emph{False} respectively, which are consistent with our intuition.
-The counterexample is omitted here and the complete results including the counterexamples can be found at \cite{reo2coq2Z3}. 
-\begin{figure}
+This example checks the equivalence relation between the two connectors in Figure~\ref{refine1}. First we construct the two connectors in the way similar to Example \ref{ex:equivalence1} and invoke the function \texttt{isRefinementOf} in both directions with bound 10. The results for both directions that we get are \texttt{True}. With the yielded result and the soundness theorem, we can conclude that the two connectors are equivalent with each other within the bound.
+\end{example}
+
+\begin{figure}[htb]
 \centering
 \begin{tikzpicture}
     % part 1. router
@@ -1230,20 +1211,18 @@ The counterexample is omitted here and the complete results including the counte
     \sync{(pwayup)}{(poutup)}{}
     \sync{(pwaydown)}{(poutdown)}{}
   \end{tikzpicture}
-\caption{Example of connector complementary refinement }\label{fig:router}
+\caption{Example of connector complementary refinement }\label{fig:EXrefine}
 \end{figure}
-
-
+\begin{example}
+In this example, we will take the well-known \emph{Exclusive Router} into consideration. This connector and one possible variant are shown as in Figure~\ref{fig:EXrefine}. The \emph{variant router} is defined with only one major difference: one of the two \emph{LossySync} channels in the Exclusive Router is replaced with a \emph{Sync} channel. Therefore, the behavior of the variant router is actually not exclusive and all data items will be transported to node \emph{E} rather than being transmitted to node \emph{E} or \emph{F} exclusively in the original router. Notice that the variant router is a refinement of the original router and conversely not. Construct these two connectors first and set a concrete bound 10. Invoke the function \texttt{isRefinementOf} in both directions, i.e., \texttt{c2.isRefinementOf(c1, 10), c1.isRefinementOf(c2, 10)} where \texttt{c2} is the variant router. We can find the results Z3 yields are \texttt{True} and \texttt{False} (together with a counter example) respectively, which are consistent with our intuition.
+The counter example is omitted here and the complete results including the counter example can be found at \cite{reo2coq2Z3}.
 \end{example}
 
-\begin{example}
-Fig.~\ref{fig:large} shows an example of the application of a two-node sequencer, with the addition of a pair of \emph{Sync} channels and a \emph{SyncDrain} channel connecting each of the nodes of the sequencer to the nodes
-\emph{A} and \emph{C}, and \emph{B} and \emph{C}, respectively. The leftmost channel of the sequencer is initialized to have a data item in its buffer, as indicated by the presence of the symbol \emph{e} in the box, which is actually a \emph{FIFO1e} channel. As the sequencer ensures that the take operations on nodes \emph{G} and \emph{H} can succeed only in the strict left-to-right order, the behavior of the connector \emph{P} can be seen as imposing an order on the flow of the data items written to \emph{A} and \emph{B}. The timed data stream obtained by successive take operations on \emph{C} consists of the first data item written to \emph{B}, followed by the first data item written to \emph{A}, followed by the second data item written to \emph{B}, and so on. The variant connector \emph{Q} is obtained by replacing the pair of \emph{Sync} channels with a pair of \emph{Sync} channel and \emph{Lossy} channel. On account of the behavior of \emph{Lossy} channel, the first data item written to \emph{B} can be lost, which leads to the failure of the sequence order. Thus, the variant connector \emph{Q} is not a refinement of the original connector \emph{P}, but the original connector is indeed a refinement of the variant connector. The details of the concrete construction and the counterexample are left out. The results Z3 solver presents are \emph{False} for \emph{c2.isRefinementOf(c1)} and \emph{True} for \emph{c1.isRefinementOf(c2)}, which are consistent with the theoretical deduction.
-\begin{figure}
+\begin{figure}[htb]
 \centering
 \begin{tikzpicture}
-	\node (note1) at (4.1, -2.6) {\small (a) Connector P};
-    \node (note2) at (10.5, -2.6) {\small (b)Variant Connector Q};
+	\node (note1) at (4.1, -2.6) {\small (a) Connector C1};
+    \node (note2) at (10.5, -2.6) {\small (b)Variant Connector C2};
     \node (note3) at (3.25,-1.1) {e};
     \node (note3) at (9.75,-1.1) {e};
 
@@ -1293,32 +1272,38 @@ Fig.~\ref{fig:large} shows an example of the application of a two-node sequencer
 \caption{Example of connector complementary refinement}
 \label{fig:large}
 \end{figure}
+\begin{example}
+Figure~\ref{fig:large} shows an example of the application of a two-node sequencer, with the addition of a pair of \emph{Sync} channels and a \emph{SyncDrain} channel connecting each of the nodes of the sequencer to the nodes
+\emph{A} and \emph{C}, and \emph{B} and \emph{C}, respectively. The leftmost channel of the sequencer is initialized to have a data item in its buffer, as indicated by the presence of the symbol \emph{e} in the box, which is actually a \emph{FIFO1e} channel. As the sequencer ensures that the take operations on nodes \emph{G} and \emph{H} can succeed only in the strict left-to-right order, the behavior of the connector $C1$ can be seen as imposing an order on the flow of the data items written to \emph{A} and \emph{B}. The timed data stream obtained by successive take operations on \emph{C} consists of the first data item written to \emph{B}, followed by the first data item written to \emph{A}, followed by the second data item written to \emph{B}, and so on. The variant connector $C2$ is obtained by replacing the pair of \emph{Sync} channels with a pair of one \emph{Sync} channel and one \emph{LossySync} channel. On account of the behavior of \emph{LossySync} channel, the first data item written to \emph{B} can be lost, which leads to the failure of the sequence order. Thus, the variant connector $C2$ is not a refinement of the original connector $C1$, but the original connector is indeed a refinement of the variant connector. The details of the concrete construction and the counter example are left out. The results Z3 solver presented are \texttt{False} for \texttt{c2.isRefinementOf(c1, 10)} and \texttt{True} for \texttt{c1.isRefinementOf(c2, 10)}, which are consistent with the results of theoretical deduction.
+
+Comparing the behavior of connector $C1$ described in this example with the \emph{alternator} in Section \ref{sec:verification}, the data stream obtained on \emph{C} is made up of the data items written to \emph{B} and \emph{A} alternately for both connectors. Intuitively, the two connectors have the same behavior and thus are equivalent. Nevertheless, by constructing the connectors and executing the function \texttt{isRefinementOf} in both directions, the returned results are both \texttt{False}, which is contrary to our expectation. In fact, the reason for this result is that the constraints on the input nodes of the two connectors are different. \emph{SyncDrain} channel of \emph{alternator} ensures that the input time on nodes \emph{A} and \emph{B} are equal. However, the application of \emph{Sequencer} guarantees that time of the two input nodes must be different. We can see that Z3 helps to avoid possible artificial mistakes by this example, which makes the advantage of Z3 more evident.
+
+
 \end{example}
+
 \subsection{Z3 vs Coq}
-Having seen the examples of property proving or relation checking provided by Coq and Z3 solver, we can summarize their features and make a comparison between them.
+In the preceding proofs of the refinement and equivalence relations or other properties in Coq, the main feature is that users need to master the tactics and strategies well enough to give a proof. Furthermore, various behavioral properties or relations on infinite timed data streams can be proven, which makes Coq sufficiently powerful. Besides, the connectors whose properties have been proved can be regarded as theorems or lemmas to assist in proving properties of much larger ones. Recall that the main reason of introducing Z3 solver is that Coq can't provide the proof of complementary refinement checking, i.e., one connector is not a refinement of the other one, let alone provide counter examples or witnesses.
 
-In the preceding proof of the refinement relation or other properties in Coq, the main feature is that users need to master the tactics and strategies well enough to give a proof. But there is no need to worry about the time consumed in the proof. It will be efficient no matter how large the connectors are as long as users have chosen proper tactics. Behavior properties or relations of infinite timed data streams can also be proven, which makes Coq sufficiently powerful. Besides, the connectors whose properties have been proved can be regarded as theorems or lemmas to assist in proving properties of much larger ones. Recall that the main reason of introducing Z3 solver is that Coq can't provide the proof of complementary refinement checking, i.e., one connector is not a refinement of the other one, let alone provide counterexamples.
+As we have seen, Z3 solver has shone light on complementary refinement checking. Besides, Z3 solver is much easier to make use of after the definition of the function \texttt{isRefinementOf} and the construction framework of Reo connectors, compared with using specific tactics and strategies in Coq. Moreover, counter examples can be provided as the additional diagnostic feedback while the refinement checking process returns \texttt{False}.
+Soundness and completeness of proofs in Z3 solver need a careful thought. In fact, the biggest drawback of Z3 solver is the failure of ensuring completeness. In simple terms, we didn't provide refinement checking for ideally infinite timed data streams. A finite prefix of timed data stream is not enough to ensure the refinement relation between two Reo connectors for certain. As a result, the equivalence relation is also not ensured completely. Nevertheless, it has no influence on the complementary refinement checking, i.e., to prove that one connector is not a refinement of the other one. Once Z3 presents a bounded counter example, the complementary refinement checking has already been finished, which is ensured by the soundness theorem.
+As for time complexity, the efficiency of Z3 solver is well-known. Proofs can be time-consuming when the bound increases gradually, especially for the connectors consisting of one of the two recursively defined channels: \emph{LossySync} and \emph{Merger}. However, when checking complementary refinement relation, the experiments show that a bound limit from 5 to 10 can guarantee a proper counter example to be given in a reasonable time for many cases.
 
-As we have seen, Z3 solver has shone light on complementary refinement checking. Besides, Z3 solver is much easier to make use of after the definition of the function \emph{isRefinementOf} and the construction framework of Reo connectors, compared with using specific tactics and strategies in Coq. Moreover, counterexamples can be provided as the additional diagnostic feedback while checking the refinement relation between two connectors.
-Soundness and completeness of proofs in Z3 solver need a careful thought. In fact, the biggest drawback of Z3 solver is the failure of ensuring completeness. In simple terms, we didn't provide refinement checking for ideally infinite timed data streams.  A finite data stream is not enough to ensure the refinement relation between two Reo connectors for certain. As a result, the equivalence relation is also not ensured completely. Nevertheless, it has no influence on the complementary refinement checking. As long as Z3 presents a counterexample of finite timed data streams, the complementary refinement checking is already done, which is ensured by the soundness theorem.
-As for time complexity, the efficiency of Z3 solver is well-known. Proofs can be time-consuming when the bound increases gradually, especially for the connectors consisting of one of the two recursively defined channels: \emph{Lossy} and \emph{Merger}. However, when checking complementary refinement relation, the experiments show that a bound limit from 5 to 10 can guarantee a proper counterexample to be given in a reasonable time.
 \section{Conclusion and Future Work}\label{sec:conclusion}
-In this paper, we present a new approach to model and reason about connectors in the Coq system and Z3 API in Python. The model naturally
+In this paper, we present a new approach to model and reason about connectors in Coq and Z3. The model naturally
 preserves the original structure of connectors. This also makes the connector description reasonably readable. We
 implement the proof of properties for connectors using identified techniques and tactics provided by Coq. Properties are
 defined in terms of predicates which provide an appropriate description of the relation among different
 timed data streams on the nodes of a connector. All the analysis and verification work are based on the logical framework
 where basic channels are viewed as axioms and composition operations are viewed as operators. As we can address
-the relation among different timed data streams, we can easily reason about temporal properties as well as equivalence
-and refinement relations for connectors. In particular, the refinement relation is fulfilled by Z3 solver.
+the relation among different timed data streams, we can reason about various properties including equivalence and refinement relations for connectors. Furthermore, since Coq can not decide if a proposition is provable or not, we can also use Z3 to search for possible bounded counter examples automatically. Although in this paper we focus on refinement checking as an example, this approach can be applied to verification of various properties.
 
-As some of the benefits of this approach are inherited from Coq, our approach has also got some of its drawbacks as well.
+As some of the benefits of this approach are inherited from Coq, our approach has got some of its drawbacks as well.
 The main limitation is that the analysis needs much more tactics and techniques when the constructor becomes large.
 In the future work, we plan to enhance our framework by two different approaches. Firstly, we may try to encapsulate
 frequently-used proof patterns as new tactics, which may reduce lots of repetitive work. After that, automation methods
 may also help us to avoid tons of hand-written proof. For example, Coq provides several auto tactics to solve proof
 goals. With proper configuration, perhaps such tactics will work well in our framework. More attention is needed to precisely
-evaluate how expressive this way is for modeling temporal properties.
+evaluate how expressive this approach is for modeling temporal properties.
 
 \subsection*{Acknowledgement}
 \noindent The work was partially supported by the National Natural Science Foundation of China under grant no. 61532019, 61202069 and 61272160.

@@ -30,23 +30,25 @@ class Channel:
         for i in range(bound):
             constraints += [ nodes[0]['data'][i] == nodes[1]['data'][i] ]
             constraints += [ nodes[0]['time'][i] <  nodes[1]['time'][i] ]
-            if i:
+            if i != 0:
                 constraints += [ nodes[0]['time'][i] > nodes[1]['time'][i-1] ]
 
         return Conjunction(constraints)
 
     @staticmethod
-    def Fifo1e(nodes, bound):
-        assert len(nodes) == 2
-        constraints = []
-        constraints += [nodes[1]['data'][0] == 1]
-        for i in range(bound-1):
-            constraints += [nodes[0]['data'][i] == nodes[1]['data'][i + 1]]
-            constraints += [nodes[0]['time'][i] < nodes[1]['time'][i + 1]]
-        for i in range(bound):
-            constraints += [nodes[0]['time'][i] > nodes[1]['time'][i]]
+    def Fifo1e(e):
+        def Fifo1eInstance(nodes, bound):
+            assert len(nodes) == 2
+            constraints = []
+            constraints += [nodes[1]['data'][0] == 1]
+            for i in range(bound-1):
+                constraints += [nodes[0]['data'][i] == nodes[1]['data'][i + 1]]
+                constraints += [nodes[0]['time'][i] < nodes[1]['time'][i + 1]]
+            for i in range(bound):
+                constraints += [nodes[0]['time'][i] > nodes[1]['time'][i]]
 
-        return Conjunction(constraints)
+            return Conjunction(constraints)
+        return Fifo1eInstance
         
     @staticmethod
     def SyncDrain(nodes, bound):
@@ -58,7 +60,7 @@ class Channel:
         return Conjunction(constraints)
     
     @staticmethod
-    def Lossy(nodes, bound, idx = 0, num = 0):
+    def LossySync(nodes, bound, idx = 0, num = 0):
         assert len(nodes) == 2
         if bound == num:
             return True
@@ -66,12 +68,11 @@ class Channel:
             return True
         constraints_0 = []
         constraints_1 = []
-        constraints_0 += [ nodes[0]['data'][idx] != nodes[1]['data'][num]]
         constraints_0 += [ nodes[0]['time'][idx] != nodes[1]['time'][num]]
         constraints_1 += [ nodes[0]['data'][idx] == nodes[1]['data'][num]]
         constraints_1 += [ nodes[0]['time'][idx] == nodes[1]['time'][num]]
-        return Or(And(Conjunction(constraints_0), Channel.Lossy(nodes, bound, idx + 1, num)),
-                  And(Conjunction(constraints_1), Channel.Lossy(nodes, bound, idx + 1, num + 1)))
+        return Or(And(Conjunction(constraints_0), Channel.LossySync(nodes, bound, idx + 1, num)),
+                  And(Conjunction(constraints_1), Channel.LossySync(nodes, bound, idx + 1, num + 1)))
 
     @staticmethod
     def Merger(nodes, bound, idx_1 = 0, idx_2 = 0):
