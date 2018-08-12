@@ -1,4 +1,4 @@
 |   | Coq | Z3 |
 |---|-----|----|
-| Sync | .. | .. |
+| Sync | `Definition Sync (Input Output:Stream TD) : Prop :=`<br>`Teq Input Output /\ Deq Input Output.` | .. |
 | LossySync | `abc` | .. |
