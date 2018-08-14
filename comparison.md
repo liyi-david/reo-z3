@@ -1,4 +1,4 @@
-|   | Coq | Z3 |
+| Channel Types  | Coq | Z3 |
 |---|-----|----|
 | Sync | `Definition Sync (Input Output:Stream TD) : Prop :=`<br>`Teq Input Output /\ Deq Input Output.` | `def Sync(nodes, bound):`<br>`assert len(nodes) == 2`<br>`constraints = []`<br>`for i in range(bound):`<br>`constraints += [ nodes[0]['data'][i] == nodes[1]['data'][i] ]`<br>` constraints += [ nodes[0]['time'][i] == nodes[1]['time'][i]`<br>`return Conjunction(constraints)` |
 | SyncDrain | `Definition SyncDrain (Input Output:Stream TD) : Prop :=`<br>`Teq Input Output.` | `def SyncDrain(nodes, bound):`<br> `assert len(nodes) == 2`<br> `constraints = []`<br> `for i in range(bound):`<br>`constraints += [nodes[0]['time'][i] == nodes[1]['time'][i]]`<br> ` return Conjunction(constraints) `|
