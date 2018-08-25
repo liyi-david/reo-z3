@@ -1,3 +1,5 @@
+Essentially, the definitions of channles are formalized according to the behavior of different channels, which can also be regarded as the requirements the channels should satisfy. In Coq, the formalization of these requirements is in form of predicates while the formalization in Z3 is in form of constraints.
+
 | Channel Types  | Coq | Z3 |
 |---|-----|----|
 | Sync | `Definition Sync (Input Output:Stream TD) : Prop :=`<br> &nbsp; &nbsp; `Teq Input Output /\ Deq Input Output.` | `def Sync(nodes, bound):`<br> &nbsp; &nbsp; `assert len(nodes) == 2`<br> &nbsp; &nbsp; `constraints = []`<br> &nbsp; &nbsp; `for i in range(bound):`<br> &nbsp; &nbsp;&nbsp; &nbsp; `constraints += [ nodes[0]['data'][i] == nodes[1]['data'][i] ]`<br> &nbsp; &nbsp;&nbsp; &nbsp; `constraints += [ nodes[0]['time'][i] == nodes[1]['time'][i]`<br> &nbsp; &nbsp; `return Conjunction(constraints)` |
