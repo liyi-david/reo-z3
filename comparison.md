@@ -1,4 +1,4 @@
-Essentially, the definitions of channles are formalized according to the behavior of different channels, which can also be regarded as the requirements the channels should satisfy. In Coq, the formalization of these requirements is in form of predicates while the formalization in Z3 is in form of constraints.
+Essentially, the definitions of channels are formalized according to the behavior of different channels, which can also be regarded as the requirements the channels should satisfy. In Coq, the formalization of these requirements is in form of predicates while the formalization in Z3 is in form of constraints.
 
 | Channel Types  | Coq | Z3 |
 |---|-----|----|
